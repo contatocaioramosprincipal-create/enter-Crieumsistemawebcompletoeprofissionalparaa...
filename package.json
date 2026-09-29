@@ -9,6 +9,8 @@
     "build:prod": "vite build",
     "check": "pnpm lint && pnpm exec tsc --noEmit",
     "lint": "eslint .",
+    "test:unit": "tsc src/features/registry/validation.ts --outDir .test-build --target ES2022 --module ES2022 --moduleResolution bundler --skipLibCheck --esModuleInterop && node --experimental-test-isolation=none --test tests/unit/*.test.mjs",
+    "test:security": "node --experimental-test-isolation=none --test tests/security/*.test.mjs",
     "preview": "vite preview",
     "pInstall": "pnpm install"
   },

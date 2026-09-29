@@ -4,6 +4,16 @@ Criar um sistema interno, separado do site público, para a atuação médico-pe
 
 O projeto atual é um template React + Vite + TypeScript + Tailwind/shadcn, com React Router, TanStack Query, React Hook Form e Zod disponíveis. Não existem módulos de negócio implementados. O Enter Cloud foi conectado; a consulta de estrutura não retornou tabelas, o que **não comprova banco vazio nem autoriza sobrescrever estruturas existentes**. Nesta etapa, nenhum módulo, política ou fluxo de segurança foi implementado ou testado.
 
+## Registro da primeira execução
+
+- [x] Criadas e inspecionadas 14 tabelas com RLS e bloqueio explícito de privilégios anônimos.
+- [x] Executado teste transacional de isolamento por caso, MFA e revogação no banco, com rollback integral.
+- [x] Aprovados 8 testes unitários e 11 testes HTTP anônimos usando Node em processo único; Vitest foi substituído porque seu executor não encerrava no sandbox.
+- [x] Escritos relatório de entrega parcial e orientações administrativas em `docs/entrega-parcial.md`.
+- [ ] Publicar a função de convites: duas tentativas falharam com HTTP 504 e a inspeção posterior confirmou função ausente. Botão desabilitado.
+- [ ] Provisionar o primeiro administrador e homologar login/MFA, convites e fluxos autenticados completos.
+- [ ] Concluir módulos restantes, auditoria de performance e critérios de liberação para dados reais.
+
 ## Decisões confirmadas
 
 - Entrada por e-mail e senha, convite e ativação administrativa; sem acesso público aos dados.
@@ -104,12 +114,12 @@ Cada etapa fecha um fluxo persistente e seus testes antes de ampliar o escopo. A
 ## Implementation checklist
 
 ### Etapa 1 — Dados, autorização e entrada
-- [ ] Inspecionar estrutura existente; criar identidade `amcf_`, migrações iniciais e políticas por operação sem alterar dados de outros negócios.
+- [x] Inspecionar estrutura existente; criar identidade `amcf_`, migrações iniciais e políticas por operação sem alterar dados de outros negócios.
 - [ ] Implementar funções de permissão e invariantes contra alteração de perfil, atribuição, vínculo de caso e concessão pelo cliente.
 - [ ] Implementar convite, aceite/cadastro controlado, login, ativação, logout e recuperação; provisionar administrador inicial por canal privilegiado.
 - [ ] Implementar MFA, sessão e revogação; bloquear operações sensíveis no servidor quando MFA estiver ausente.
 - [ ] Implementar Equipe e configurações com atribuições, revogação e auditoria de mudanças; impedir revogação acidental do último administrador ativo.
-- [ ] Implementar shell, rotas autenticadas e aviso de demonstração; preservar contratos do editor e instâncias estáveis de router/QueryClient.
+- [x] Implementar shell, rotas autenticadas e aviso de demonstração; preservar contratos do editor e instâncias estáveis de router/QueryClient.
 
 ### Etapa 2 — CRM, oportunidades e casos
 - [ ] Implementar CRUD de pessoas/organizações, normalização de e-mail/telefone, interações e próximos passos com escopo por registro.

@@ -23,6 +23,7 @@ export default defineConfig(({ mode }) => {
     },
     base: '/',
     build: {
+      manifest: true,
       outDir: 'dist',
     }
   };

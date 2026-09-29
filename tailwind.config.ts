@@ -19,7 +19,12 @@ export default {
 			}
 		},
 		extend: {
+			fontFamily: { sans: ['var(--font-body)'] },
 			colors: {
+				gold: { DEFAULT: 'hsl(var(--gold))', light: 'hsl(var(--gold-light))' },
+				success: { DEFAULT: 'hsl(var(--success))', soft: 'hsl(var(--success-soft))' },
+				warning: { DEFAULT: 'hsl(var(--warning))', soft: 'hsl(var(--warning-soft))' },
+				overlay: 'hsl(var(--overlay))',
 				border: 'hsl(var(--border))',
 				input: 'hsl(var(--input))',
 				ring: 'hsl(var(--ring))',

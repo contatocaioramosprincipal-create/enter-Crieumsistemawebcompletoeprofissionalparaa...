@@ -1,0 +1,19 @@
+{
+  "base": "/",
+  "routes": [
+    {
+      "url": "/",
+      "html": "index.html",
+      "entry": "index.html",
+      "kind": "app",
+      "initialDynamicImports": ["_browser-ponyfill-CgO79ldD.js"],
+      "deferredDynamicImports": [
+        { "key": "src/features/registry/RegistryPage.tsx", "trigger": "navigation", "reason": "Listagens operacionais após autenticação e navegação." },
+        { "key": "src/features/cases/CaseDetail.tsx", "trigger": "navigation", "reason": "Detalhe de um caso selecionado após autenticação." },
+        { "key": "src/features/team/SettingsPage.tsx", "trigger": "navigation", "reason": "Administração somente quando solicitada." },
+        { "key": "src/pages/PendingModule.tsx", "trigger": "navigation", "reason": "Avisos de módulos não implementados, apenas nas respectivas rotas." }
+      ],
+      "initialFonts": []
+    }
+  ]
+}

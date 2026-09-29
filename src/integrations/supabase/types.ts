@@ -3360,13 +3360,641 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      amcf_audit_events: {
+        Row: {
+          action: string
+          actor_id: string | null
+          case_id: string | null
+          changed_fields: string[]
+          created_at: string
+          id: number
+          resource: string
+          resource_id: string | null
+        }
+        Insert: {
+          action: string
+          actor_id?: string | null
+          case_id?: string | null
+          changed_fields?: string[]
+          created_at?: string
+          id?: never
+          resource: string
+          resource_id?: string | null
+        }
+        Update: {
+          action?: string
+          actor_id?: string | null
+          case_id?: string | null
+          changed_fields?: string[]
+          created_at?: string
+          id?: never
+          resource?: string
+          resource_id?: string | null
+        }
+        Relationships: []
+      }
+      amcf_case_assignments: {
+        Row: {
+          case_id: string
+          created_at: string
+          member_id: string
+        }
+        Insert: {
+          case_id: string
+          created_at?: string
+          member_id: string
+        }
+        Update: {
+          case_id?: string
+          created_at?: string
+          member_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "amcf_case_assignments_case_id_fkey"
+            columns: ["case_id"]
+            referencedRelation: "amcf_cases"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "amcf_case_assignments_member_id_fkey"
+            columns: ["member_id"]
+            referencedRelation: "amcf_members"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      amcf_case_checklist: {
+        Row: {
+          case_id: string
+          completed: boolean
+          created_at: string
+          created_by: string
+          id: string
+          title: string
+        }
+        Insert: {
+          case_id: string
+          completed?: boolean
+          created_at?: string
+          created_by?: string
+          id?: string
+          title: string
+        }
+        Update: {
+          case_id?: string
+          completed?: boolean
+          created_at?: string
+          created_by?: string
+          id?: string
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "amcf_case_checklist_case_id_fkey"
+            columns: ["case_id"]
+            referencedRelation: "amcf_cases"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "amcf_case_checklist_created_by_fkey"
+            columns: ["created_by"]
+            referencedRelation: "amcf_members"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      amcf_case_stages: {
+        Row: {
+          id: string
+          name: string
+          position: number
+          terminal: boolean
+        }
+        Insert: {
+          id?: string
+          name: string
+          position: number
+          terminal?: boolean
+        }
+        Update: {
+          id?: string
+          name?: string
+          position?: number
+          terminal?: boolean
+        }
+        Relationships: []
+      }
+      amcf_cases: {
+        Row: {
+          administrative_summary: string
+          archived_at: string | null
+          contact_id: string
+          created_at: string
+          created_by: string
+          due_on: string | null
+          id: string
+          opened_on: string
+          opportunity_id: string | null
+          reference: string
+          responsible_id: string
+          service: string
+          stage_id: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          administrative_summary?: string
+          archived_at?: string | null
+          contact_id: string
+          created_at?: string
+          created_by?: string
+          due_on?: string | null
+          id?: string
+          opened_on?: string
+          opportunity_id?: string | null
+          reference: string
+          responsible_id: string
+          service: string
+          stage_id: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          administrative_summary?: string
+          archived_at?: string | null
+          contact_id?: string
+          created_at?: string
+          created_by?: string
+          due_on?: string | null
+          id?: string
+          opened_on?: string
+          opportunity_id?: string | null
+          reference?: string
+          responsible_id?: string
+          service?: string
+          stage_id?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "amcf_cases_contact_id_fkey"
+            columns: ["contact_id"]
+            referencedRelation: "amcf_contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "amcf_cases_created_by_fkey"
+            columns: ["created_by"]
+            referencedRelation: "amcf_members"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "amcf_cases_opportunity_id_fkey"
+            columns: ["opportunity_id"]
+            referencedRelation: "amcf_opportunities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "amcf_cases_responsible_id_fkey"
+            columns: ["responsible_id"]
+            referencedRelation: "amcf_members"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "amcf_cases_stage_id_fkey"
+            columns: ["stage_id"]
+            referencedRelation: "amcf_case_stages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      amcf_contacts: {
+        Row: {
+          archived_at: string | null
+          created_at: string
+          created_by: string
+          email: string | null
+          id: string
+          kind: string
+          name: string
+          notes: string
+          organization_id: string | null
+          phone: string | null
+          responsible_id: string
+          source: string
+          updated_at: string
+        }
+        Insert: {
+          archived_at?: string | null
+          created_at?: string
+          created_by?: string
+          email?: string | null
+          id?: string
+          kind?: string
+          name: string
+          notes?: string
+          organization_id?: string | null
+          phone?: string | null
+          responsible_id?: string
+          source?: string
+          updated_at?: string
+        }
+        Update: {
+          archived_at?: string | null
+          created_at?: string
+          created_by?: string
+          email?: string | null
+          id?: string
+          kind?: string
+          name?: string
+          notes?: string
+          organization_id?: string | null
+          phone?: string | null
+          responsible_id?: string
+          source?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "amcf_contacts_created_by_fkey"
+            columns: ["created_by"]
+            referencedRelation: "amcf_members"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "amcf_contacts_organization_id_fkey"
+            columns: ["organization_id"]
+            referencedRelation: "amcf_organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "amcf_contacts_responsible_id_fkey"
+            columns: ["responsible_id"]
+            referencedRelation: "amcf_members"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      amcf_interactions: {
+        Row: {
+          case_id: string | null
+          contact_id: string
+          created_at: string
+          created_by: string
+          id: string
+          kind: string
+          next_on: string | null
+          next_step: string
+          summary: string
+        }
+        Insert: {
+          case_id?: string | null
+          contact_id: string
+          created_at?: string
+          created_by?: string
+          id?: string
+          kind?: string
+          next_on?: string | null
+          next_step?: string
+          summary: string
+        }
+        Update: {
+          case_id?: string | null
+          contact_id?: string
+          created_at?: string
+          created_by?: string
+          id?: string
+          kind?: string
+          next_on?: string | null
+          next_step?: string
+          summary?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "amcf_interactions_case_id_fkey"
+            columns: ["case_id"]
+            referencedRelation: "amcf_cases"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "amcf_interactions_contact_id_fkey"
+            columns: ["contact_id"]
+            referencedRelation: "amcf_contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "amcf_interactions_created_by_fkey"
+            columns: ["created_by"]
+            referencedRelation: "amcf_members"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      amcf_members: {
+        Row: {
+          created_at: string
+          email: string
+          id: string
+          name: string
+          role: string
+          status: string
+        }
+        Insert: {
+          created_at?: string
+          email: string
+          id: string
+          name: string
+          role: string
+          status?: string
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          id?: string
+          name?: string
+          role?: string
+          status?: string
+        }
+        Relationships: []
+      }
+      amcf_opportunities: {
+        Row: {
+          contact_id: string
+          created_at: string
+          created_by: string
+          id: string
+          loss_reason: string | null
+          next_step: string
+          responsible_id: string
+          service: string
+          stage_id: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          contact_id: string
+          created_at?: string
+          created_by?: string
+          id?: string
+          loss_reason?: string | null
+          next_step?: string
+          responsible_id?: string
+          service: string
+          stage_id: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          contact_id?: string
+          created_at?: string
+          created_by?: string
+          id?: string
+          loss_reason?: string | null
+          next_step?: string
+          responsible_id?: string
+          service?: string
+          stage_id?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "amcf_opportunities_contact_id_fkey"
+            columns: ["contact_id"]
+            referencedRelation: "amcf_contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "amcf_opportunities_created_by_fkey"
+            columns: ["created_by"]
+            referencedRelation: "amcf_members"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "amcf_opportunities_responsible_id_fkey"
+            columns: ["responsible_id"]
+            referencedRelation: "amcf_members"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "amcf_opportunities_stage_id_fkey"
+            columns: ["stage_id"]
+            referencedRelation: "amcf_pipeline_stages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      amcf_opportunity_values: {
+        Row: {
+          amount_cents: number
+          opportunity_id: string
+        }
+        Insert: {
+          amount_cents: number
+          opportunity_id: string
+        }
+        Update: {
+          amount_cents?: number
+          opportunity_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "amcf_opportunity_values_opportunity_id_fkey"
+            columns: ["opportunity_id"]
+            referencedRelation: "amcf_opportunities"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      amcf_organizations: {
+        Row: {
+          created_at: string
+          created_by: string
+          id: string
+          name: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string
+          id?: string
+          name: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          id?: string
+          name?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "amcf_organizations_created_by_fkey"
+            columns: ["created_by"]
+            referencedRelation: "amcf_members"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      amcf_pipeline_stages: {
+        Row: {
+          id: string
+          name: string
+          outcome: string
+          position: number
+        }
+        Insert: {
+          id?: string
+          name: string
+          outcome?: string
+          position: number
+        }
+        Update: {
+          id?: string
+          name?: string
+          outcome?: string
+          position?: number
+        }
+        Relationships: []
+      }
+      amcf_settings: {
+        Row: {
+          app_origin: string | null
+          environment: string
+          id: boolean
+          timezone: string
+          updated_at: string
+          whatsapp: string
+        }
+        Insert: {
+          app_origin?: string | null
+          environment?: string
+          id?: boolean
+          timezone?: string
+          updated_at?: string
+          whatsapp?: string
+        }
+        Update: {
+          app_origin?: string | null
+          environment?: string
+          id?: boolean
+          timezone?: string
+          updated_at?: string
+          whatsapp?: string
+        }
+        Relationships: []
+      }
+      amcf_tasks: {
+        Row: {
+          case_id: string | null
+          contact_id: string | null
+          created_at: string
+          created_by: string
+          description: string
+          due_on: string
+          id: string
+          priority: string
+          responsible_id: string
+          status: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          case_id?: string | null
+          contact_id?: string | null
+          created_at?: string
+          created_by?: string
+          description?: string
+          due_on: string
+          id?: string
+          priority?: string
+          responsible_id?: string
+          status?: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          case_id?: string | null
+          contact_id?: string | null
+          created_at?: string
+          created_by?: string
+          description?: string
+          due_on?: string
+          id?: string
+          priority?: string
+          responsible_id?: string
+          status?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "amcf_tasks_case_id_fkey"
+            columns: ["case_id"]
+            referencedRelation: "amcf_cases"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "amcf_tasks_contact_id_fkey"
+            columns: ["contact_id"]
+            referencedRelation: "amcf_contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "amcf_tasks_created_by_fkey"
+            columns: ["created_by"]
+            referencedRelation: "amcf_members"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "amcf_tasks_responsible_id_fkey"
+            columns: ["responsible_id"]
+            referencedRelation: "amcf_members"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      amcf_access_context: {
+        Args: Record<PropertyKey, never>
+        Returns: Json
+      }
+      amcf_can_case: {
+        Args: { target: string }
+        Returns: boolean
+      }
+      amcf_can_contact: {
+        Args: { target: string }
+        Returns: boolean
+      }
+      amcf_dashboard: {
+        Args: Record<PropertyKey, never>
+        Returns: Json
+      }
+      amcf_directory: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          id: string
+          name: string
+          role: string
+        }[]
+      }
+      amcf_is_manager: {
+        Args: Record<PropertyKey, never>
+        Returns: boolean
+      }
+      amcf_manage_member: {
+        Args: { new_role: string; new_status: string; target: string }
+        Returns: undefined
+      }
+      amcf_role: {
+        Args: Record<PropertyKey, never>
+        Returns: string
+      }
     }
     Enums: {
       [_ in never]: never

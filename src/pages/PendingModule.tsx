@@ -1,0 +1,7 @@
+import { Link } from 'react-router-dom';
+import { Construction, ArrowLeft, ShieldAlert } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import PageHeader from '@/components/data-table/PageHeader';
+export default function PendingModule({ title, dependencies }: { title: string; dependencies: string[] }) {
+  return <><PageHeader eyebrow="IMPLEMENTAÇÃO POR ETAPAS" title={title} description="Este módulo ainda não está operacional. Nenhuma ação ou dado foi simulado." /><section className="data-panel mx-auto max-w-3xl px-7 py-10 sm:px-12"><Construction className="mb-6 h-9 w-9 text-muted-foreground" /><span className="status-pill status-warning">Ainda não disponível</span><h2 className="mt-5 text-xl font-semibold">Funcionalidade antes de aparência.</h2><p className="mt-3 text-sm leading-7 text-muted-foreground">Esta área será liberada somente quando o fluxo persistente, suas permissões e os testes correspondentes estiverem implementados. A navegação antecipa a estrutura aprovada, não a conclusão do módulo.</p><ul className="mt-6 space-y-3 border-t pt-5">{dependencies.map(item => <li key={item} className="flex items-start gap-3 text-sm"><span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-border" />{item}</li>)}</ul><div className="notice mt-7"><ShieldAlert className="h-4 w-4 shrink-0" /><p>Uso com dados reais permanece bloqueado.</p></div><Button asChild variant="outline" className="mt-6"><Link to="/"><ArrowLeft />Voltar à visão geral</Link></Button></section></>;
+}
