@@ -78,7 +78,7 @@ export default function RecordEditor({ resource, row, onClose }: { resource: Res
     } catch (failure) { setError(errorMessage(failure)); }
     finally { setBusy(false); }
   };
-  return <Dialog open onOpenChange={open => { if (!open && !busy) onClose(); }}><DialogContent className="max-h-[90dvh] max-w-2xl overflow-y-auto"><DialogHeader><DialogTitle>{row ? 'Editar' : 'Novo registro:'} {definition.singular}</DialogTitle><DialogDescription>Somente informações administrativas fictícias. Não inclua dados clínicos.</DialogDescription></DialogHeader><form onSubmit={save} className="space-y-5"><div className="grid gap-4 sm:grid-cols-2">{definition.fields.map(field => {
+  return <Dialog open onOpenChange={open => { if (!open && !busy) onClose(); }}><DialogContent className="max-h-[90dvh] max-w-2xl overflow-y-auto"><DialogHeader><DialogTitle>{row ? 'Editar' : 'Novo registro:'} {definition.singular}</DialogTitle><DialogDescription>Registre somente informações administrativas. Não inclua dados clínicos.</DialogDescription></DialogHeader><form onSubmit={save} className="space-y-5"><div className="grid gap-4 sm:grid-cols-2">{definition.fields.map(field => {
     const disabled = busy || (!!row && !!field.immutable) || (!!field.managerOnly && !access?.capabilities.manage);
     let options: { id: string; name: string }[] = [];
     if (field.type === 'member') options = directory.data || [];

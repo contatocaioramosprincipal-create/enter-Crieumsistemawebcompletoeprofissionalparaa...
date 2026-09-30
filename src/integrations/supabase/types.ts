@@ -3637,6 +3637,31 @@ export type Database = {
           },
         ]
       }
+      amcf_document_files: {
+        Row: {
+          content: string
+          created_at: string
+          document_id: string
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          document_id: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          document_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "amcf_document_files_document_id_fkey"
+            columns: ["document_id"]
+            referencedRelation: "amcf_documents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       amcf_documents: {
         Row: {
           case_id: string
