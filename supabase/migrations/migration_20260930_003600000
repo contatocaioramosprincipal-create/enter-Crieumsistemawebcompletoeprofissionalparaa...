@@ -1,0 +1,26 @@
+begin;
+alter table public.amcf_settings add column if not exists app_origin text;
+alter policy assignments_manage on public.amcf_case_assignments using (public.amcf_is_manager()) with check (public.amcf_is_manager() and exists(select 1 from public.amcf_directory() d where d.id = member_id));
+create function public.amcf_convert_opportunity(target uuid) returns uuid language plpgsql security invoker set search_path = public as $$
+declare o public.amcf_opportunities%rowtype; won uuid; triage uuid; new_case uuid; new_ref text;
+begin
+ if not public.amcf_is_manager() then raise exception 'Somente administrador ou médico pode converter' using errcode='42501'; end if;
+ select * into o from public.amcf_opportunities where id = target for update;
+ if not found then raise exception 'Oportunidade indisponível' using errcode='42501'; end if;
+ if exists(select 1 from public.amcf_cases where opportunity_id = target) then raise exception 'Esta oportunidade já foi convertida' using errcode='23505'; end if;
+ if exists(select 1 from public.amcf_pipeline_stages where id = o.stage_id and outcome = 'lost') then raise exception 'Oportunidade perdida não pode ser convertida'; end if;
+ select id into won from public.amcf_pipeline_stages where outcome = 'won' order by position limit 1;
+ select id into triage from public.amcf_case_stages where name = 'Triagem';
+ if won is null or triage is null then raise exception 'Etapas de conversão não configuradas'; end if;
+ new_ref := 'AMCF-' || to_char((now() at time zone 'America/Bahia'), 'YYYY') || '-' || upper(substr(replace(gen_random_uuid()::text, '-', ''), 1, 8));
+ insert into public.amcf_cases(reference, title, contact_id, opportunity_id, service, stage_id, responsible_id, opened_on, created_by)
+ values (new_ref, o.title, o.contact_id, o.id, o.service, triage, o.responsible_id, (now() at time zone 'America/Bahia')::date, auth.uid()) returning id into new_case;
+ if exists(select 1 from public.amcf_directory() d where d.id = o.responsible_id and d.role = 'assistant') then
+  insert into public.amcf_case_assignments(case_id, member_id) values (new_case, o.responsible_id);
+ end if;
+ update public.amcf_opportunities set stage_id = won where id = target;
+ return new_case;
+end $$;
+revoke all on function public.amcf_convert_opportunity(uuid) from public, anon;
+grant execute on function public.amcf_convert_opportunity(uuid) to authenticated;
+commit;
