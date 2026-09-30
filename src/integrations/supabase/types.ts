@@ -4566,6 +4566,10 @@ export type Database = {
         Args: { target: string }
         Returns: boolean
       }
+      amcf_can_object: {
+        Args: { object_name: string }
+        Returns: boolean
+      }
       amcf_convert_opportunity: {
         Args: { target: string }
         Returns: string
