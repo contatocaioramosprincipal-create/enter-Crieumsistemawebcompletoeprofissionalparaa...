@@ -1,49 +1,73 @@
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.57.4';
-import { z } from 'https://esm.sh/zod@3.25.76';
+const cors = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS'
+};
 
-const cors = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type', 'Access-Control-Allow-Methods': 'POST, OPTIONS' };
-const payload = z.object({ name: z.string().trim().min(2).max(120), email: z.string().email().max(254), role: z.enum(['admin', 'doctor', 'assistant']) }).strict();
+const reply = (status: number, body: unknown) => new Response(JSON.stringify(body), { status, headers: { ...cors, 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } });
+
+const BASE = () => Deno.env.get('SUPABASE_URL')!;
+const ANON = () => Deno.env.get('SUPABASE_ANON_KEY')!;
+const SERVICE = () => Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+
+const withService = (path: string, init: RequestInit = {}) => fetch(BASE() + path, { ...init, headers: { 'Content-Type': 'application/json', apikey: SERVICE(), Authorization: `Bearer ${SERVICE()}`, ...(init.headers || {}) } });
+const withCaller = (path: string, token: string, init: RequestInit = {}) => fetch(BASE() + path, { ...init, headers: { 'Content-Type': 'application/json', apikey: ANON(), Authorization: `Bearer ${token}`, ...(init.headers || {}) } });
+const isEmail = (value: string) => /^[^@\s]+@[^@\s]+\.[a-zA-Z]{2,}$/.test(value);
+
 Deno.serve(async (request: Request) => {
   if (request.method === 'OPTIONS') return new Response(null, { headers: cors });
-  const reply = (status: number, body: object) => new Response(JSON.stringify(body), { status, headers: { ...cors, 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } });
   if (request.method !== 'POST') return reply(405, { error: 'Método não permitido.' });
   const requestId = crypto.randomUUID();
   try {
-    const authorization = request.headers.get('Authorization');
-    if (!authorization?.startsWith('Bearer ')) return reply(401, { error: 'Autenticação necessária.' });
-    const url = Deno.env.get('SUPABASE_URL')!;
-    const client = createClient(url, Deno.env.get('SUPABASE_ANON_KEY')!, { global: { headers: { Authorization: authorization } }, auth: { persistSession: false } });
-    const { data: identity, error: invalid } = await client.auth.getUser();
-    if (invalid || !identity.user) return reply(401, { error: 'Sessão inválida.' });
-    const { data: context, error: denied } = await client.rpc('amcf_access_context');
-    if (denied || !context?.capabilities?.team) return reply(403, { error: 'Esta ação exige administrador ativo e MFA.' });
-    if (Number(request.headers.get('Content-Length') || 0) > 4096) return reply(413, { error: 'Solicitação muito grande.' });
-    const parsed = payload.safeParse(await request.json());
-    if (!parsed.success) return reply(400, { error: 'Confira nome, e-mail e perfil.' });
-    const { data: settings, error: settingsError } = await client.from('amcf_settings').select('app_origin').eq('id', true).maybeSingle();
-    if (settingsError || !settings?.app_origin) return reply(409, { error: 'Configure e valide a origem HTTPS da aplicação antes de enviar convites.' });
-    const origin = new URL(settings.app_origin);
-    if (origin.protocol !== 'https:' || origin.origin !== settings.app_origin) return reply(409, { error: 'Origem da aplicação inválida.' });
-    const service = createClient(url, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!, { auth: { persistSession: false } });
-    const input = { ...parsed.data, email: parsed.data.email.toLowerCase().trim() };
-    const { data: existing, error: lookupError } = await service.from('amcf_members').select('id').eq('email', input.email).maybeSingle();
-    if (lookupError) throw lookupError;
-    if (existing) return reply(409, { error: 'Já existe um integrante com este e-mail. Consulte a equipe.' });
-    const { data: invited, error: invitationError } = await service.auth.admin.inviteUserByEmail(input.email, { redirectTo: `${origin.origin}/`, data: { name: input.name, amcf_needs_password: true } });
-    if (invitationError || !invited.user) {
-      console.error(JSON.stringify({ requestId, step: 'invite', code: invitationError?.code || 'missing_user' }));
+    const authorization = request.headers.get('Authorization') ?? '';
+    const callerToken = authorization.startsWith('Bearer ') ? authorization.slice(7) : '';
+    if (!callerToken) return reply(401, { error: 'Autenticação necessária.' });
+    const me = await withCaller('/auth/v1/user', callerToken);
+    const identity = me.ok ? await me.json() : null;
+    if (!identity?.id) return reply(401, { error: 'Sessão inválida.' });
+    const contextResponse = await withCaller('/rest/v1/rpc/amcf_access_context', callerToken, { method: 'POST', body: '{}' });
+    const context = contextResponse.ok ? await contextResponse.json() : null;
+    if (!context?.capabilities?.team) return reply(403, { error: 'Esta ação exige administrador ativo com MFA.' });
+    const body = await request.json().catch(() => null) as { name?: string; email?: string; role?: string } | null;
+    const name = String(body?.name ?? '').trim();
+    const email = String(body?.email ?? '').trim().toLowerCase();
+    const role = String(body?.role ?? '');
+    if (name.length < 2 || name.length > 120 || !isEmail(email) || email.length > 254 || !['admin', 'doctor', 'assistant'].includes(role)) return reply(400, { error: 'Confira nome, e-mail e perfil.' });
+    let origin = '';
+    const settingsResponse = await withCaller('/rest/v1/amcf_settings?select=app_origin&id=eq.true', callerToken);
+    if (settingsResponse.ok) {
+      const settings = await settingsResponse.json();
+      const configured = Array.isArray(settings) ? settings[0]?.app_origin : null;
+      const candidate = typeof configured === 'string' && configured ? configured : (request.headers.get('Origin') ?? '');
+      if (candidate.startsWith('https://')) origin = candidate.replace(/\/+$/, '');
+    }
+    if (!origin) return reply(409, { error: 'Configure e valide a origem HTTPS da aplicação antes de enviar convites.' });
+    const existingResponse = await withService(`/rest/v1/amcf_members?select=id&email=eq.${encodeURIComponent(email)}&limit=1`);
+    const existing = existingResponse.ok ? await existingResponse.json() : [];
+    if (Array.isArray(existing) && existing.length) return reply(409, { error: 'Já existe um integrante com este e-mail. Consulte a equipe.' });
+    const inviteResponse = await withService('/auth/v1/invite', { method: 'POST', body: JSON.stringify({ email, data: { name, amcf_needs_password: true }, redirect_to: `${origin}/` }) });
+    if (!inviteResponse.ok) {
+      const detail = await inviteResponse.text();
+      console.error(JSON.stringify({ requestId, step: 'invite', status: inviteResponse.status, detail: detail.slice(0, 300) }));
       return reply(502, { error: 'O provedor não confirmou o convite. Confira a configuração de e-mail antes de tentar novamente.', requestId });
     }
-    const { error: memberError } = await service.from('amcf_members').insert({ id: invited.user.id, name: input.name, email: input.email, role: input.role, status: 'pending' });
-    if (memberError) {
-      console.error(JSON.stringify({ requestId, step: 'membership', code: memberError.code }));
-      return reply(500, { error: 'O convite foi solicitado, mas a autorização não foi criada. Não reenvie automaticamente; solicite revisão administrativa.', requestId });
+    const invited = await inviteResponse.json();
+    const userId = invited?.id ?? invited?.user?.id;
+    if (!userId) {
+      console.error(JSON.stringify({ requestId, step: 'invite-response' }));
+      return reply(502, { error: 'O provedor respondeu sem identificador de usuário. Não reenvie automaticamente.', requestId });
     }
-    const { error: auditError } = await service.from('amcf_audit_events').insert({ actor_id: identity.user.id, action: 'INVITE_REQUESTED', resource: 'amcf_members', resource_id: invited.user.id, changed_fields: ['invitation'] });
-    if (auditError) console.error(JSON.stringify({ requestId, step: 'audit', code: auditError.code }));
+    const memberResponse = await withService('/rest/v1/amcf_members', { method: 'POST', headers: { Prefer: 'return=representation' }, body: JSON.stringify({ id: userId, name, email, role, status: 'pending' }) });
+    if (!memberResponse.ok) {
+      const detail = await memberResponse.text();
+      console.error(JSON.stringify({ requestId, step: 'membership', detail: detail.slice(0, 300) }));
+      return reply(500, { error: 'O convite foi solicitado, mas a autorização não foi criada. Solicite revisão administrativa; não reenvie automaticamente.', requestId });
+    }
+    const auditResponse = await withService('/rest/v1/amcf_audit_events', { method: 'POST', body: JSON.stringify({ actor_id: identity.id, action: 'INVITE_REQUESTED', resource: 'amcf_members', resource_id: userId, changed_fields: ['invitation'] }) });
+    if (!auditResponse.ok) console.error(JSON.stringify({ requestId, step: 'audit' }));
     return reply(200, { status: 'pending', message: 'Convite solicitado ao provedor. A entrega na caixa postal não foi verificada. O acesso permanece pendente de ativação.' });
-  } catch {
-    console.error(JSON.stringify({ requestId, step: 'unhandled' }));
+  } catch (error) {
+    console.error(JSON.stringify({ requestId, step: 'unhandled', detail: String(error).slice(0, 200) }));
     return reply(500, { error: 'Não foi possível concluir a solicitação.', requestId });
   }
 });
