@@ -1,15 +1,17 @@
 {
-  "name": "AMCF | Gestão Médico-Pericial",
+  "name": "AMCF",
   "short_name": "AMCF",
-  "description": "Ambiente interno de gestão médico-pericial do Dr. Adilson Machado Couto Filho.",
+  "description": "Gestão médico-pericial do Dr. Adilson Machado Couto Filho.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
+  "orientation": "portrait-primary",
   "background_color": "#0f1e2e",
   "theme_color": "#142438",
   "icons": [
-    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png" },
-    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" },
     { "src": "/favicon.svg", "sizes": "any", "type": "image/svg+xml" }
   ]
 }

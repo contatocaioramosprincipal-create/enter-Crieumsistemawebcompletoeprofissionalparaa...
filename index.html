@@ -13,6 +13,14 @@
   <meta name="theme-color" content="#142438" />
   <meta name="application-name" content="AMCF" />
   <meta name="apple-mobile-web-app-title" content="AMCF" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', function () { navigator.serviceWorker.register('/sw.js').catch(function () { /* instalação segue sem service worker */ }); });
+    }
+  </script>
   <title>AMCF | Gestão Médico-Pericial</title>
   <meta name="description" content="Ambiente interno de gestão médico-pericial do Dr. Adilson Machado Couto Filho. Acesso exclusivo à equipe autorizada." />
   <meta property="og:site_name" content="AMCF" />
