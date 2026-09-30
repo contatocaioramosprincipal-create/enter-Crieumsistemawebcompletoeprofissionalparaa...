@@ -3637,6 +3637,70 @@ export type Database = {
           },
         ]
       }
+      amcf_documents: {
+        Row: {
+          case_id: string
+          category: string
+          contact_id: string | null
+          created_at: string
+          document_date: string | null
+          file_name: string
+          id: string
+          mime_type: string
+          size_bytes: number
+          storage_path: string
+          title: string
+          uploaded_by: string
+        }
+        Insert: {
+          case_id: string
+          category?: string
+          contact_id?: string | null
+          created_at?: string
+          document_date?: string | null
+          file_name: string
+          id?: string
+          mime_type: string
+          size_bytes: number
+          storage_path: string
+          title: string
+          uploaded_by?: string
+        }
+        Update: {
+          case_id?: string
+          category?: string
+          contact_id?: string | null
+          created_at?: string
+          document_date?: string | null
+          file_name?: string
+          id?: string
+          mime_type?: string
+          size_bytes?: number
+          storage_path?: string
+          title?: string
+          uploaded_by?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "amcf_documents_case_id_fkey"
+            columns: ["case_id"]
+            referencedRelation: "amcf_cases"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "amcf_documents_contact_id_fkey"
+            columns: ["contact_id"]
+            referencedRelation: "amcf_contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "amcf_documents_uploaded_by_fkey"
+            columns: ["uploaded_by"]
+            referencedRelation: "amcf_members"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       amcf_interactions: {
         Row: {
           case_id: string | null
@@ -3857,6 +3921,176 @@ export type Database = {
         }
         Relationships: []
       }
+      amcf_proposals: {
+        Row: {
+          amount_cents: number
+          case_id: string | null
+          contact_id: string
+          created_at: string
+          created_by: string
+          description: string
+          id: string
+          notes: string
+          opportunity_id: string | null
+          responsible_id: string
+          service: string
+          status: string
+          title: string
+          updated_at: string
+          valid_until: string | null
+        }
+        Insert: {
+          amount_cents: number
+          case_id?: string | null
+          contact_id: string
+          created_at?: string
+          created_by?: string
+          description?: string
+          id?: string
+          notes?: string
+          opportunity_id?: string | null
+          responsible_id?: string
+          service: string
+          status?: string
+          title: string
+          updated_at?: string
+          valid_until?: string | null
+        }
+        Update: {
+          amount_cents?: number
+          case_id?: string | null
+          contact_id?: string
+          created_at?: string
+          created_by?: string
+          description?: string
+          id?: string
+          notes?: string
+          opportunity_id?: string | null
+          responsible_id?: string
+          service?: string
+          status?: string
+          title?: string
+          updated_at?: string
+          valid_until?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "amcf_proposals_case_id_fkey"
+            columns: ["case_id"]
+            referencedRelation: "amcf_cases"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "amcf_proposals_contact_id_fkey"
+            columns: ["contact_id"]
+            referencedRelation: "amcf_contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "amcf_proposals_created_by_fkey"
+            columns: ["created_by"]
+            referencedRelation: "amcf_members"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "amcf_proposals_opportunity_id_fkey"
+            columns: ["opportunity_id"]
+            referencedRelation: "amcf_opportunities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "amcf_proposals_responsible_id_fkey"
+            columns: ["responsible_id"]
+            referencedRelation: "amcf_members"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      amcf_receivables: {
+        Row: {
+          amount_cents: number
+          case_id: string | null
+          contact_id: string
+          created_at: string
+          created_by: string
+          description: string
+          due_on: string
+          id: string
+          notes: string
+          paid_on: string | null
+          payment_method: string | null
+          proposal_id: string | null
+          responsible_id: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          amount_cents: number
+          case_id?: string | null
+          contact_id: string
+          created_at?: string
+          created_by?: string
+          description: string
+          due_on: string
+          id?: string
+          notes?: string
+          paid_on?: string | null
+          payment_method?: string | null
+          proposal_id?: string | null
+          responsible_id?: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          amount_cents?: number
+          case_id?: string | null
+          contact_id?: string
+          created_at?: string
+          created_by?: string
+          description?: string
+          due_on?: string
+          id?: string
+          notes?: string
+          paid_on?: string | null
+          payment_method?: string | null
+          proposal_id?: string | null
+          responsible_id?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "amcf_receivables_case_id_fkey"
+            columns: ["case_id"]
+            referencedRelation: "amcf_cases"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "amcf_receivables_contact_id_fkey"
+            columns: ["contact_id"]
+            referencedRelation: "amcf_contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "amcf_receivables_created_by_fkey"
+            columns: ["created_by"]
+            referencedRelation: "amcf_members"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "amcf_receivables_proposal_id_fkey"
+            columns: ["proposal_id"]
+            referencedRelation: "amcf_proposals"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "amcf_receivables_responsible_id_fkey"
+            columns: ["responsible_id"]
+            referencedRelation: "amcf_members"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       amcf_settings: {
         Row: {
           app_origin: string | null
@@ -3994,6 +4228,10 @@ export type Database = {
       amcf_manage_member: {
         Args: { new_role: string; new_status: string; target: string }
         Returns: undefined
+      }
+      amcf_report: {
+        Args: Record<PropertyKey, never>
+        Returns: Json
       }
       amcf_role: {
         Args: Record<PropertyKey, never>

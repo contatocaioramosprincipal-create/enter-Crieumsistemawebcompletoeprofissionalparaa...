@@ -7,6 +7,9 @@ const CaseDetail = lazy(() => import('@/features/cases/CaseDetail'));
 const SettingsPage = lazy(() => import('@/features/team/SettingsPage'));
 const PendingModule = lazy(() => import('@/pages/PendingModule'));
 const Agenda = lazy(() => import('@/pages/Agenda'));
+const DocumentsPage = lazy(() => import('@/features/documents/DocumentsPage'));
+const FinancePage = lazy(() => import('@/features/finance/FinancePage'));
+const ReportsPage = lazy(() => import('@/pages/ReportsPage'));
 const pending = (title: string, dependencies: string[]) => page(<PendingModule title={title} dependencies={dependencies} />);
 const page = (children: ReactNode) => <Suspense fallback={<div className="data-panel"><QueryState loading /></div>}>{children}</Suspense>;
 export const routers = [{ path: '/', name: 'workspace', element: <AppShell />, children: [
@@ -18,10 +21,10 @@ export const routers = [{ path: '/', name: 'workspace', element: <AppShell />, c
   { path: 'tarefas', element: page(<RegistryPage key="tasks" resource="tasks" />) },
   { path: 'configuracoes', element: page(<SettingsPage />) },
   { path: 'agenda', element: page(<Agenda />) },
-  { path: 'documentos', element: pending('Documentos', ['Upload privado e autorização por caso e classificação.', 'Validação de arquivos, versões e registro de acesso.', 'Varredura de malware, criptografia e retenção verificadas.']) },
-  { path: 'propostas', element: pending('Propostas', ['Escopo, entregáveis e valores protegidos por perfil.', 'Versões de proposta e PDF após revisão.', 'Contratos vinculados ao caso.']) },
-  { path: 'financeiro', element: pending('Financeiro', ['Cobranças administrativas e recebimentos parciais.', 'Comprovantes privados e proteção contra acesso de assistentes.', 'Indicadores financeiros calculados no banco.']) },
-  { path: 'relatorios', element: pending('Relatórios', ['Filtros por período, origem, serviço e responsável.', 'Agregações e exportações limitadas ao escopo de acesso.', 'Testes de consistência e proteção contra inferência de dados.']) },
+  { path: 'documentos', element: page(<DocumentsPage />) },
+  { path: 'propostas', element: page(<RegistryPage key="proposals" resource="proposals" />) },
+  { path: 'financeiro', element: page(<FinancePage />) },
+  { path: 'relatorios', element: page(<ReportsPage />) },
   { path: '*', element: pending('Página não encontrada', ['Confira o endereço ou utilize a navegação principal.']) },
 ] }];
 declare global { interface Window { __routers__: typeof routers } }

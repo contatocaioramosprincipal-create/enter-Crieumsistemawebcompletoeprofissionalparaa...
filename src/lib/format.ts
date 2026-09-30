@@ -9,5 +9,6 @@ export function errorMessage(error: unknown) {
   if (e?.code === '42501') return 'Você não tem permissão para esta operação. Verifique sua atribuição e autenticação.';
   if (e?.code === '23505') return 'Já existe um registro com esta referência. Confira antes de continuar.';
   if (e?.code === '23503') return 'O registro está vinculado a outras informações ou o vínculo não está disponível.';
+  if (e?.code === '23514') return 'Alguns campos estão inconsistentes com as regras (por exemplo, status Pago exige data de pagamento, ou valor não pode ser zero).';
   return e?.message || 'Não foi possível concluir. Tente novamente.';
 }

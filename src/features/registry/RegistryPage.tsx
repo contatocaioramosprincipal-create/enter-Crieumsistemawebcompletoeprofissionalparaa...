@@ -1,7 +1,7 @@
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useNavigate } from 'react-router-dom';
-import { Plus, Search, SlidersHorizontal, LayoutList, Columns3, ArrowUpDown, ChevronLeft, ChevronRight, Pencil, ArrowUpRight, Archive, ArrowRightLeft } from 'lucide-react';
+import { Plus, Search, SlidersHorizontal, LayoutList, Columns3, ArrowUpDown, ChevronLeft, ChevronRight, Pencil, ArrowUpRight, Archive } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/features/auth/auth-context';
@@ -10,11 +10,11 @@ import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import PageHeader from '@/components/data-table/PageHeader';
 import QueryState from '@/components/data-table/QueryState';
-import { dateLabel, errorMessage, currency } from '@/lib/format';
-import { resources, contactKinds, taskStatuses, priorities, type ResourceKey, type RecordRow } from './resources';
+import { dateLabel, errorMessage, currency, todayISO } from '@/lib/format';
+import { resources, contactKinds, taskStatuses, priorities, proposalStatuses, receivableStatuses, type ResourceKey, type RecordRow } from './resources';
 import RecordEditor from './RecordEditor';
 
-export default function RegistryPage({ resource }: { resource: ResourceKey }) {
+export default function RegistryPage({ resource, headerSlot }: { resource: ResourceKey; headerSlot?: ReactNode }) {
   const definition = resources[resource];
   const { access } = useAuth();
   const cache = useQueryClient();
@@ -26,12 +26,13 @@ export default function RegistryPage({ resource }: { resource: ResourceKey }) {
   const [converting, setConverting] = useState<string | null>(null);
   const navigate = useNavigate();
   const columns = definition.columns.filter(column => !column.managerOnly || access?.capabilities.manage);
+  const statusFilter = resource === 'tasks' ? taskStatuses : resource === 'proposals' ? proposalStatuses : resource === 'receivables' ? receivableStatuses : null;
   const directory = useQuery({ queryKey: ['directory'], queryFn: async () => { const result = await supabase.rpc('amcf_directory'); if (result.error) throw result.error; return result.data; } });
   const stages = useQuery({ queryKey: ['stages', definition.stageTable], enabled: !!definition.stageTable, queryFn: async () => { const result = await supabase.from(definition.stageTable!).select('*').order('position'); if (result.error) throw result.error; return result.data; } });
   const query = useQuery({ queryKey: ['registry', resource, term, page, ascending, stage], queryFn: async () => {
     let q = supabase.from(definition.table).select(definition.select, { count: 'exact' }).order('created_at', { ascending }).order('id').range(page * 20, page * 20 + 19);
     if (term) q = q.ilike(definition.search, `%${term.replace(/[%_\\]/g, '')}%`);
-    if (stage) q = q.filter(resource === 'tasks' ? 'status' : 'stage_id', 'eq', stage);
+    if (stage) q = q.filter(definition.stageTable ? 'stage_id' : 'status', 'eq', stage);
     if (resource === 'contacts' || resource === 'cases') q = q.is('archived_at', null);
     const result = await q; if (result.error) throw result.error;
     return { rows: result.data as unknown as RecordRow[], count: result.count || 0 };
@@ -40,11 +41,15 @@ export default function RegistryPage({ resource }: { resource: ResourceKey }) {
   const rows = query.data?.rows || [];
   const label = (row: RecordRow, column: typeof definition.columns[number]) => {
     const value = row[column.key];
-    if (column.type === 'currency') { const related = (Array.isArray(value) ? value[0] : value) as { amount_cents?: number } | null; return related?.amount_cents === undefined || related?.amount_cents === null ? 'Não informado' : currency(related.amount_cents); }
+    if (column.type === 'currency') { const raw = Array.isArray(value) ? value[0] : value; if (typeof raw === 'number') return currency(raw); const related = raw as { amount_cents?: number } | null; return related?.amount_cents === undefined || related?.amount_cents === null ? 'Não informado' : currency(related.amount_cents); }
+    if (column.type === 'status') {
+      if (resource === 'receivables' && row.status === 'pending' && typeof row.due_on === 'string' && row.due_on < todayISO()) return 'Vencido';
+      return ({ ...contactKinds, ...taskStatuses, ...priorities, ...proposalStatuses, ...receivableStatuses } as Record<string, string>)[String(value)] || String(value);
+    }
     if (column.type === 'date') return dateLabel(value as string);
     if (column.type === 'member') return directory.data?.find(m => m.id === value)?.name || 'Responsável';
     if (column.type === 'relation') { const related = value as { name?: string; reference?: string } | null; return related?.name || related?.reference || '—'; }
-    if (column.type === 'status') return ({ ...contactKinds, ...taskStatuses, ...priorities } as Record<string, string>)[String(value)] || String(value);
+    if (column.type === 'status') return ({ ...contactKinds, ...taskStatuses, ...priorities, ...proposalStatuses, ...receivableStatuses } as Record<string, string>)[String(value)] || String(value);
     return value ? String(value) : '—';
   };
   const archiveRecord = async () => {
@@ -63,9 +68,11 @@ export default function RegistryPage({ resource }: { resource: ResourceKey }) {
     else { toast.success('Caso criado a partir da oportunidade.'); await cache.invalidateQueries(); navigate(`/casos/${result.data}`); }
     setConverting(null);
   };
+  if ((resource === 'proposals' || resource === 'receivables') && !access?.capabilities.finance) return <><PageHeader eyebrow="ACESSO RESTRITO" title={definition.title} description="Este módulo é restrito a administrador e médico responsável." /><section className="data-panel p-7"><p className="text-sm leading-7 text-muted-foreground">Seu perfil não tem acesso a valores comerciais e financeiros. A restrição é aplicada no banco de dados, não apenas nesta tela.</p></section></>;
   return <><PageHeader eyebrow={resource === 'cases' ? 'ATUAÇÃO MÉDICO-PERICIAL' : 'GESTÃO OPERACIONAL'} title={definition.title} description={definition.description}>{(resource !== 'cases' || access?.capabilities.manage) && <Button onClick={() => setEditor(null)}><Plus />{resource === 'contacts' ? 'Novo contato' : resource === 'cases' ? 'Novo caso' : resource === 'tasks' ? 'Nova tarefa' : 'Nova oportunidade'}</Button>}</PageHeader>
+    {headerSlot}
     {resource === 'tasks' && <div className="notice mb-5"><SlidersHorizontal className="h-4 w-4 shrink-0" /><p>A conferência humana de prazos judiciais é indispensável. Recorrência e alertas automáticos ainda não estão ativos.</p></div>}
-    <section className="data-panel"><div className="table-toolbar"><form onSubmit={e => { e.preventDefault(); setTerm(search); setPage(0); }} className="flex w-full gap-2 sm:max-w-sm"><div className="relative flex-1"><Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" /><Input className="pl-9" placeholder={`Buscar ${definition.title.toLowerCase()}…`} aria-label="Buscar registros" value={search} onChange={e => setSearch(e.target.value)} /></div><Button variant="outline" type="submit">Buscar</Button></form><div className="flex flex-wrap items-center gap-2">{(definition.stageTable || resource === 'tasks') && <select className="native-select w-auto min-w-36" aria-label="Filtrar por etapa ou situação" value={stage} onChange={e => { setStage(e.target.value); setPage(0); }}><option value="">{resource === 'tasks' ? 'Todas as situações' : 'Todas as etapas'}</option>{resource === 'tasks' ? Object.entries(taskStatuses).map(([id, name]) => <option value={id} key={id}>{name}</option>) : stages.data?.map(s => <option value={s.id} key={s.id}>{s.name}</option>)}</select>}<Button variant="outline" size="icon" aria-label={ascending ? 'Ordenar mais recentes primeiro' : 'Ordenar mais antigos primeiro'} onClick={() => { setAscending(!ascending); setPage(0); }}><ArrowUpDown /></Button>{definition.stageTable && <div className="flex rounded-md border p-1"><Button variant={view === 'list' ? 'secondary' : 'ghost'} size="sm" aria-label="Visualização em lista" onClick={() => setView('list')}><LayoutList /></Button><Button variant={view === 'board' ? 'secondary' : 'ghost'} size="sm" aria-label="Visualização em kanban" onClick={() => setView('board')}><Columns3 /></Button></div>}</div></div>
+    <section className="data-panel"><div className="table-toolbar"><form onSubmit={e => { e.preventDefault(); setTerm(search); setPage(0); }} className="flex w-full gap-2 sm:max-w-sm"><div className="relative flex-1"><Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" /><Input className="pl-9" placeholder={`Buscar ${definition.title.toLowerCase()}…`} aria-label="Buscar registros" value={search} onChange={e => setSearch(e.target.value)} /></div><Button variant="outline" type="submit">Buscar</Button></form><div className="flex flex-wrap items-center gap-2">{(definition.stageTable || statusFilter) && <select className="native-select w-auto min-w-36" aria-label="Filtrar por etapa ou situação" value={stage} onChange={e => { setStage(e.target.value); setPage(0); }}><option value="">{statusFilter ? 'Todas as situações' : 'Todas as etapas'}</option>{statusFilter ? Object.entries(statusFilter).map(([id, name]) => <option value={id} key={id}>{name}</option>) : stages.data?.map(s => <option value={s.id} key={s.id}>{s.name}</option>)}</select>}<Button variant="outline" size="icon" aria-label={ascending ? 'Ordenar mais recentes primeiro' : 'Ordenar mais antigos primeiro'} onClick={() => { setAscending(!ascending); setPage(0); }}><ArrowUpDown /></Button>{definition.stageTable && <div className="flex rounded-md border p-1"><Button variant={view === 'list' ? 'secondary' : 'ghost'} size="sm" aria-label="Visualização em lista" onClick={() => setView('list')}><LayoutList /></Button><Button variant={view === 'board' ? 'secondary' : 'ghost'} size="sm" aria-label="Visualização em kanban" onClick={() => setView('board')}><Columns3 /></Button></div>}</div></div>
     <QueryState loading={query.isPending} error={query.isError} empty={!query.isPending && !query.isError && !rows.length} onRetry={() => void query.refetch()} title={term || stage ? 'Nenhum resultado para estes filtros' : `Nenhum ${definition.singular} cadastrado`} />
     {!query.isPending && !query.isError && rows.length > 0 && (view === 'list' ? <div className="table-scroll"><table className="work-table"><thead><tr>{columns.map(c => <th key={c.key}>{c.label}</th>)}<th className="text-right">Ações</th></tr></thead><tbody>{rows.map(row => <tr key={row.id}>{columns.map((c, index) => <td key={c.key} className={index === 0 ? 'font-medium' : ''}>{c.type === 'status' || c.key === 'stage' ? <span className={`status-pill ${row[c.key] === 'urgent' || row[c.key] === 'high' ? 'status-warning' : 'status-neutral'}`}>{label(row, c)}</span> : index === 1 && resource === 'cases' ? <Link to={`/casos/${row.id}`} className="hover:underline">{label(row, c)}</Link> : label(row, c)}</td>)}<td><div className="flex justify-end gap-1">{resource === 'opportunities' && access?.capabilities.manage && <Button variant="outline" size="sm" disabled={converting === String(row.id)} onClick={() => void convert(row)}>{converting === String(row.id) ? 'Convertendo…' : 'Converter em caso'}</Button>}{resource === 'cases' && <Button asChild variant="ghost" size="icon" aria-label="Abrir caso"><Link to={`/casos/${row.id}`}><ArrowUpRight /></Link></Button>}<Button variant="ghost" size="icon" aria-label={`Editar ${definition.singular}`} onClick={() => setEditor(row)}><Pencil /></Button>{access?.capabilities.manage && ['contacts', 'cases'].includes(resource) && <Button variant="ghost" size="icon" aria-label={`Arquivar ${definition.singular}`} onClick={() => setArchive(row)}><Archive /></Button>}</div></td></tr>)}</tbody></table></div> : <div className="kanban-board">{stages.data?.map(s => <section key={s.id} className="kanban-column"><div className="mb-4 flex items-center justify-between text-xs font-semibold"><span>{s.name}</span><span className="text-muted-foreground">{rows.filter(r => r.stage_id === s.id).length}</span></div>{rows.filter(r => r.stage_id === s.id).map(row => <button key={row.id} onClick={() => setEditor(row)} className="kanban-item"><span className="text-[10px] uppercase tracking-wider text-muted-foreground">{String(row.reference || definition.singular)}</span><strong className="mt-2 block text-sm font-medium">{String(row.title)}</strong><span className="mt-4 block text-xs text-muted-foreground">{String(row.service)}</span></button>)}</section>)}</div>)}
     <div className="table-pagination"><span>{query.isError ? 'Consulta indisponível' : query.isPending ? 'Consultando…' : `${count} registro${count === 1 ? '' : 's'} · ${view === 'board' ? 'Kanban da página atual' : '20 por página'}`}</span><div className="flex items-center gap-3"><Button variant="outline" size="icon" disabled={page === 0 || query.isFetching} onClick={() => setPage(p => p - 1)} aria-label="Página anterior"><ChevronLeft /></Button><span>{page + 1} / {Math.max(1, Math.ceil(count / 20))}</span><Button variant="outline" size="icon" disabled={(page + 1) * 20 >= count || query.isFetching} onClick={() => setPage(p => p + 1)} aria-label="Próxima página"><ChevronRight /></Button></div></div></section>
