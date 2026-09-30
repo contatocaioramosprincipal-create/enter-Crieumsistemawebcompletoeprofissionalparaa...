@@ -1,0 +1,46 @@
+begin;
+create or replace function public.amcf_api_key(p_token text, p_scope text) returns uuid language plpgsql security definer set search_path = public, extensions as $$
+declare found_key public.amcf_integration_keys;
+begin
+ if p_token is null or char_length(p_token) < 24 then return null; end if;
+ select * into found_key from public.amcf_integration_keys where token_hash = encode(digest(p_token, 'sha256'::text), 'hex') and active and revoked_at is null;
+ if not found then return null; end if;
+ if p_scope is not null and not (p_scope = any(found_key.scopes)) then return null; end if;
+ update public.amcf_integration_keys set last_used_at = now() where id = found_key.id;
+ return found_key.id;
+end $$;
+create or replace function public.amcf_integration_dispatch() returns trigger language plpgsql security definer set search_path = public, extensions, net as $$
+declare hook record; body jsonb; request bigint;
+begin
+ body := jsonb_build_object('event', new.event, 'resource', new.resource, 'resource_id', new.resource_id, 'payload', new.payload, 'created_at', new.created_at);
+ for hook in select * from public.amcf_integration_hooks where active and (cardinality(events) = 0 or new.event = any(events)) loop
+  begin
+   select net.http_post(url := hook.url, body := body, headers := jsonb_build_object('Content-Type', 'application/json', 'X-AMCF-Event', new.event, 'X-AMCF-Signature', 'sha256=' || encode(hmac(body::text, hook.secret, 'sha256'::text), 'hex'))) into request;
+   insert into public.amcf_integration_deliveries(event_id, hook_id, request_id) values (new.id, hook.id, request);
+  exception when others then
+   insert into public.amcf_integration_deliveries(event_id, hook_id, request_id, status) values (new.id, hook.id, null, -1);
+  end;
+ end loop;
+ return new;
+end $$;
+create or replace function public.amcf_integration_retry_failures() returns jsonb language plpgsql security definer set search_path = public, extensions, net as $$
+declare item record; request bigint; code integer; reconciled integer := 0; retried integer := 0; body jsonb;
+begin
+ if public.amcf_role() is distinct from 'admin' then raise exception 'Apenas administrador' using errcode = '42501'; end if;
+ for item in select * from public.amcf_integration_deliveries where status is null and request_id is not null loop
+  select status_code into code from net._http_response where id = item.request_id;
+  if code is not null then update public.amcf_integration_deliveries set status = code, updated_at = now() where id = item.id; reconciled := reconciled + 1; end if;
+ end loop;
+ for item in select d.id, h.url, h.secret, e.event, e.resource, e.resource_id, e.payload, e.created_at as event_at from public.amcf_integration_deliveries d join public.amcf_integration_hooks h on h.id = d.hook_id join public.amcf_integration_events e on e.id = d.event_id where d.attempts < 3 and (d.status is null or d.status < 200 or d.status >= 300) and d.updated_at < now() - interval '2 minutes' loop
+  body := jsonb_build_object('event', item.event, 'resource', item.resource, 'resource_id', item.resource_id, 'payload', item.payload, 'created_at', item.event_at);
+  begin
+   select net.http_post(url := item.url, body := body, headers := jsonb_build_object('Content-Type', 'application/json', 'X-AMCF-Event', item.event, 'X-AMCF-Signature', 'sha256=' || encode(hmac(body::text, item.secret, 'sha256'::text), 'hex'))) into request;
+   update public.amcf_integration_deliveries set request_id = request, attempts = attempts + 1, status = null, updated_at = now() where id = item.id;
+   retried := retried + 1;
+  exception when others then
+   update public.amcf_integration_deliveries set status = -1, attempts = attempts + 1, updated_at = now() where id = item.id;
+  end;
+ end loop;
+ return jsonb_build_object('reconciled', reconciled, 'retried', retried);
+end $$;
+commit;

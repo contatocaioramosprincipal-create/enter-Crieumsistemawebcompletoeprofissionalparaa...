@@ -1,0 +1,11 @@
+begin;
+insert into public.amcf_integration_keys(id,label,token_hash,scopes,owner_id) values ('70000000-0000-4000-8000-000000000001','teste n8n', encode(digest('token-de-teste-123456789012345678901234'::text,'sha256'::text),'hex'), array['contacts:write','events:read','agenda:read'], '8fe33846-dff9-4023-89df-180acfdb8977');
+select public.amcf_api_ping('token-de-teste-123456789012345678901234') ->> 'ok' as ping_ok;
+select public.amcf_api_contact_upsert('token-de-teste-123456789012345678901234','lead-teste-1','Fulano de Teste','lawyer','fulano.teste@example.com','71999990000','n8n') ->> 'contact_id' as primeiro_id;
+select public.amcf_api_contact_upsert('token-de-teste-123456789012345678901234','lead-teste-1','Fulano de Teste','lawyer','fulano.teste@example.com','71999990000','n8n') ->> 'contact_id' as segundo_id;
+do $$ begin if (select count(*) from public.amcf_contacts where email='fulano.teste@example.com') <> 1 then raise exception 'TEST FAILED: contato duplicado (idempotencia falhou)'; end if; end $$;
+do $$ begin if (select count(*) from public.amcf_integration_events where event='contact.created') < 1 then raise exception 'TEST FAILED: evento contact.created nao emitido'; end if; end $$;
+do $$ begin if (select count(*) from public.amcf_integration_logs where success) < 3 then raise exception 'TEST FAILED: log de integracao ausente'; end if; end $$;
+select public.amcf_api_events('token-de-teste-123456789012345678901234') ->> 'count' as eventos_entregues;
+select public.amcf_api_agenda('token-de-teste-123456789012345678901234','2026-09-01','2026-09-30') ->> 'ok' as agenda_ok;
+rollback;

@@ -6,7 +6,7 @@ const url = client.match(/SUPABASE_URL\s*=\s*"([^"]+)"/)?.[1];
 const key = client.match(/SUPABASE_PUBLISHABLE_KEY\s*=\s*"([^"]+)"/)?.[1];
 if (!url || !key) throw new Error('Conexão pública de teste não encontrada.');
 const headers = { apikey: key, Authorization: `Bearer ${key}`, Connection: 'close' };
-const tables = ['amcf_members', 'amcf_contacts', 'amcf_cases', 'amcf_case_assignments', 'amcf_tasks', 'amcf_interactions', 'amcf_opportunity_values', 'amcf_audit_events', 'amcf_settings', 'amcf_documents', 'amcf_document_files', 'amcf_proposals', 'amcf_receivables'];
+const tables = ['amcf_members', 'amcf_contacts', 'amcf_cases', 'amcf_case_assignments', 'amcf_tasks', 'amcf_interactions', 'amcf_opportunity_values', 'amcf_audit_events', 'amcf_settings', 'amcf_documents', 'amcf_document_files', 'amcf_proposals', 'amcf_receivables', 'amcf_integration_keys', 'amcf_integration_logs', 'amcf_integration_events', 'amcf_integration_hooks', 'amcf_integration_deliveries'];
 describe('API real sem conta autenticada', () => {
  for (const table of tables) it(`nega acesso anônimo a ${table}`, async () => {
   const r = await fetch(`${url}/rest/v1/${table}?select=*&limit=1`, { headers, signal: AbortSignal.timeout(10000) });

@@ -3726,6 +3726,235 @@ export type Database = {
           },
         ]
       }
+      amcf_integration_deliveries: {
+        Row: {
+          attempts: number
+          created_at: string
+          event_id: number
+          hook_id: string
+          id: number
+          request_id: number | null
+          status: number | null
+          updated_at: string
+        }
+        Insert: {
+          attempts?: number
+          created_at?: string
+          event_id: number
+          hook_id: string
+          id?: never
+          request_id?: number | null
+          status?: number | null
+          updated_at?: string
+        }
+        Update: {
+          attempts?: number
+          created_at?: string
+          event_id?: number
+          hook_id?: string
+          id?: never
+          request_id?: number | null
+          status?: number | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "amcf_integration_deliveries_event_id_fkey"
+            columns: ["event_id"]
+            referencedRelation: "amcf_integration_events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "amcf_integration_deliveries_hook_id_fkey"
+            columns: ["hook_id"]
+            referencedRelation: "amcf_integration_hooks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      amcf_integration_events: {
+        Row: {
+          created_at: string
+          delivered_at: string | null
+          event: string
+          id: number
+          payload: Json
+          resource: string
+          resource_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          delivered_at?: string | null
+          event: string
+          id?: never
+          payload?: Json
+          resource: string
+          resource_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          delivered_at?: string | null
+          event?: string
+          id?: never
+          payload?: Json
+          resource?: string
+          resource_id?: string | null
+        }
+        Relationships: []
+      }
+      amcf_integration_hooks: {
+        Row: {
+          active: boolean
+          created_at: string
+          created_by: string | null
+          events: string[]
+          id: string
+          label: string
+          secret: string
+          url: string
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          created_by?: string | null
+          events?: string[]
+          id?: string
+          label: string
+          secret: string
+          url: string
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          created_by?: string | null
+          events?: string[]
+          id?: string
+          label?: string
+          secret?: string
+          url?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "amcf_integration_hooks_created_by_fkey"
+            columns: ["created_by"]
+            referencedRelation: "amcf_members"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      amcf_integration_keys: {
+        Row: {
+          active: boolean
+          created_at: string
+          id: string
+          label: string
+          last_used_at: string | null
+          owner_id: string
+          revoked_at: string | null
+          scopes: string[]
+          token_hash: string
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          id?: string
+          label: string
+          last_used_at?: string | null
+          owner_id: string
+          revoked_at?: string | null
+          scopes?: string[]
+          token_hash: string
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          id?: string
+          label?: string
+          last_used_at?: string | null
+          owner_id?: string
+          revoked_at?: string | null
+          scopes?: string[]
+          token_hash?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "amcf_integration_keys_owner_id_fkey"
+            columns: ["owner_id"]
+            referencedRelation: "amcf_members"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      amcf_integration_logs: {
+        Row: {
+          action: string
+          at: string
+          detail: string | null
+          external_ref: string | null
+          id: number
+          key_id: string | null
+          resource: string | null
+          resource_id: string | null
+          source: string
+          success: boolean
+        }
+        Insert: {
+          action: string
+          at?: string
+          detail?: string | null
+          external_ref?: string | null
+          id?: never
+          key_id?: string | null
+          resource?: string | null
+          resource_id?: string | null
+          source?: string
+          success: boolean
+        }
+        Update: {
+          action?: string
+          at?: string
+          detail?: string | null
+          external_ref?: string | null
+          id?: never
+          key_id?: string | null
+          resource?: string | null
+          resource_id?: string | null
+          source?: string
+          success?: boolean
+        }
+        Relationships: []
+      }
+      amcf_integration_refs: {
+        Row: {
+          created_at: string
+          external_ref: string
+          key_id: string
+          resource: string
+          resource_id: string
+        }
+        Insert: {
+          created_at?: string
+          external_ref: string
+          key_id: string
+          resource: string
+          resource_id: string
+        }
+        Update: {
+          created_at?: string
+          external_ref?: string
+          key_id?: string
+          resource?: string
+          resource_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "amcf_integration_refs_key_id_fkey"
+            columns: ["key_id"]
+            referencedRelation: "amcf_integration_keys"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       amcf_interactions: {
         Row: {
           case_id: string | null
@@ -4222,6 +4451,113 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: Json
       }
+      amcf_api_activity_create: {
+        Args: {
+          p_case_id?: string
+          p_contact_id: string
+          p_external_ref: string
+          p_kind?: string
+          p_next_on?: string
+          p_next_step?: string
+          p_summary: string
+          p_token: string
+        }
+        Returns: Json
+      }
+      amcf_api_agenda: {
+        Args: { p_from: string; p_to: string; p_token: string }
+        Returns: Json
+      }
+      amcf_api_case_create: {
+        Args: {
+          p_contact_id: string
+          p_due_on?: string
+          p_external_ref: string
+          p_opportunity_id?: string
+          p_reference?: string
+          p_service: string
+          p_title: string
+          p_token: string
+        }
+        Returns: Json
+      }
+      amcf_api_contact_upsert: {
+        Args: {
+          p_email?: string
+          p_external_ref: string
+          p_kind?: string
+          p_name: string
+          p_notes?: string
+          p_phone?: string
+          p_source?: string
+          p_token: string
+        }
+        Returns: Json
+      }
+      amcf_api_events: {
+        Args: { p_limit?: number; p_token: string }
+        Returns: Json
+      }
+      amcf_api_key: {
+        Args: { p_scope: string; p_token: string }
+        Returns: string
+      }
+      amcf_api_log: {
+        Args: {
+          p_action: string
+          p_detail?: string
+          p_external_ref?: string
+          p_key: string
+          p_resource?: string
+          p_resource_id?: string
+          p_success: boolean
+        }
+        Returns: undefined
+      }
+      amcf_api_opportunity_stage: {
+        Args: {
+          p_opportunity_id: string
+          p_stage_name: string
+          p_token: string
+        }
+        Returns: Json
+      }
+      amcf_api_opportunity_upsert: {
+        Args: {
+          p_amount_cents?: number
+          p_contact_id: string
+          p_external_ref: string
+          p_next_step?: string
+          p_service: string
+          p_stage_name?: string
+          p_title: string
+          p_token: string
+        }
+        Returns: Json
+      }
+      amcf_api_owner: {
+        Args: { p_key: string }
+        Returns: string
+      }
+      amcf_api_ping: {
+        Args: { p_token: string }
+        Returns: Json
+      }
+      amcf_api_task_upsert: {
+        Args: {
+          p_case_id?: string
+          p_contact_id?: string
+          p_description?: string
+          p_due_on: string
+          p_external_ref: string
+          p_priority?: string
+          p_responsible_id?: string
+          p_status?: string
+          p_title: string
+          p_token: string
+        }
+        Returns: Json
+      }
       amcf_can_case: {
         Args: { target: string }
         Returns: boolean
@@ -4245,6 +4581,10 @@ export type Database = {
           name: string
           role: string
         }[]
+      }
+      amcf_integration_retry_failures: {
+        Args: Record<PropertyKey, never>
+        Returns: Json
       }
       amcf_is_manager: {
         Args: Record<PropertyKey, never>
