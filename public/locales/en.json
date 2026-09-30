@@ -1,7 +1,7 @@
 {
-  "common.appName": "Your App Name",
-  "home.hero.title": "Welcome to your blank app",
-  "home.hero.subtitle": "Make any App yours with ease.",
-  "notFound.title": "Oops! Page not found",
-  "notFound.actions.backHome": "Return to Home"
+  "common.appName": "AMCF | Gestão Médico-Pericial",
+  "home.hero.title": "Gestão médico-pericial",
+  "home.hero.subtitle": "Acesso exclusivo à equipe autorizada.",
+  "notFound.title": "Página não encontrada",
+  "notFound.actions.backHome": "Voltar à visão geral"
 }
