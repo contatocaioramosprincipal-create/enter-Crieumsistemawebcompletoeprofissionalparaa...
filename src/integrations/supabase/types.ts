@@ -3360,6 +3360,67 @@ export type Database = {
   }
   public: {
     Tables: {
+      amcf_analysis_items: {
+        Row: {
+          analysis_id: string
+          case_id: string
+          content: string
+          created_at: string
+          created_by: string
+          id: string
+          kind: string
+          position: number
+          section: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          analysis_id: string
+          case_id: string
+          content?: string
+          created_at?: string
+          created_by?: string
+          id?: string
+          kind?: string
+          position?: number
+          section: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          analysis_id?: string
+          case_id?: string
+          content?: string
+          created_at?: string
+          created_by?: string
+          id?: string
+          kind?: string
+          position?: number
+          section?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "amcf_analysis_items_analysis_id_fkey"
+            columns: ["analysis_id"]
+            referencedRelation: "amcf_case_analyses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "amcf_analysis_items_case_id_fkey"
+            columns: ["case_id"]
+            referencedRelation: "amcf_cases"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "amcf_analysis_items_created_by_fkey"
+            columns: ["created_by"]
+            referencedRelation: "amcf_members"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       amcf_audit_events: {
         Row: {
           action: string
@@ -3393,6 +3454,85 @@ export type Database = {
         }
         Relationships: []
       }
+      amcf_case_analyses: {
+        Row: {
+          approval_note: string
+          approved_at: string | null
+          approved_by: string | null
+          case_id: string
+          created_at: string
+          created_by: string
+          engine: string
+          id: string
+          input_fingerprint: string | null
+          input_summary: Json
+          method: string
+          status: string
+          summary: string
+          title: string
+          updated_at: string
+          version: number
+          warnings: Json
+        }
+        Insert: {
+          approval_note?: string
+          approved_at?: string | null
+          approved_by?: string | null
+          case_id: string
+          created_at?: string
+          created_by?: string
+          engine?: string
+          id?: string
+          input_fingerprint?: string | null
+          input_summary?: Json
+          method?: string
+          status?: string
+          summary?: string
+          title?: string
+          updated_at?: string
+          version: number
+          warnings?: Json
+        }
+        Update: {
+          approval_note?: string
+          approved_at?: string | null
+          approved_by?: string | null
+          case_id?: string
+          created_at?: string
+          created_by?: string
+          engine?: string
+          id?: string
+          input_fingerprint?: string | null
+          input_summary?: Json
+          method?: string
+          status?: string
+          summary?: string
+          title?: string
+          updated_at?: string
+          version?: number
+          warnings?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "amcf_case_analyses_approved_by_fkey"
+            columns: ["approved_by"]
+            referencedRelation: "amcf_members"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "amcf_case_analyses_case_id_fkey"
+            columns: ["case_id"]
+            referencedRelation: "amcf_cases"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "amcf_case_analyses_created_by_fkey"
+            columns: ["created_by"]
+            referencedRelation: "amcf_members"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       amcf_case_assignments: {
         Row: {
           case_id: string
@@ -3419,6 +3559,46 @@ export type Database = {
           {
             foreignKeyName: "amcf_case_assignments_member_id_fkey"
             columns: ["member_id"]
+            referencedRelation: "amcf_members"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      amcf_case_chats: {
+        Row: {
+          case_id: string
+          created_at: string
+          created_by: string
+          id: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          case_id: string
+          created_at?: string
+          created_by?: string
+          id?: string
+          title?: string
+          updated_at?: string
+        }
+        Update: {
+          case_id?: string
+          created_at?: string
+          created_by?: string
+          id?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "amcf_case_chats_case_id_fkey"
+            columns: ["case_id"]
+            referencedRelation: "amcf_cases"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "amcf_case_chats_created_by_fkey"
+            columns: ["created_by"]
             referencedRelation: "amcf_members"
             referencedColumns: ["id"]
           },
@@ -3464,6 +3644,183 @@ export type Database = {
           },
         ]
       }
+      amcf_case_financial_events: {
+        Row: {
+          amount_cents: number
+          case_id: string
+          created_at: string
+          created_by: string
+          description: string
+          expected_on: string | null
+          id: string
+          kind: string
+          notes: string
+          reference: string
+          settled_on: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          amount_cents: number
+          case_id: string
+          created_at?: string
+          created_by?: string
+          description: string
+          expected_on?: string | null
+          id?: string
+          kind: string
+          notes?: string
+          reference?: string
+          settled_on?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          amount_cents?: number
+          case_id?: string
+          created_at?: string
+          created_by?: string
+          description?: string
+          expected_on?: string | null
+          id?: string
+          kind?: string
+          notes?: string
+          reference?: string
+          settled_on?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "amcf_case_financial_events_case_id_fkey"
+            columns: ["case_id"]
+            referencedRelation: "amcf_cases"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "amcf_case_financial_events_created_by_fkey"
+            columns: ["created_by"]
+            referencedRelation: "amcf_members"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      amcf_case_messages: {
+        Row: {
+          case_id: string
+          chat_id: string
+          content: string
+          created_at: string
+          created_by: string
+          engine: string
+          engine_note: string
+          id: string
+          role: string
+          sources: Json
+        }
+        Insert: {
+          case_id: string
+          chat_id: string
+          content: string
+          created_at?: string
+          created_by?: string
+          engine?: string
+          engine_note?: string
+          id?: string
+          role: string
+          sources?: Json
+        }
+        Update: {
+          case_id?: string
+          chat_id?: string
+          content?: string
+          created_at?: string
+          created_by?: string
+          engine?: string
+          engine_note?: string
+          id?: string
+          role?: string
+          sources?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "amcf_case_messages_case_id_fkey"
+            columns: ["case_id"]
+            referencedRelation: "amcf_cases"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "amcf_case_messages_chat_id_fkey"
+            columns: ["chat_id"]
+            referencedRelation: "amcf_case_chats"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "amcf_case_messages_created_by_fkey"
+            columns: ["created_by"]
+            referencedRelation: "amcf_members"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      amcf_case_questions: {
+        Row: {
+          author_detail: string
+          author_kind: string
+          case_id: string
+          created_at: string
+          created_by: string
+          id: string
+          number: number
+          position: number
+          status: string
+          text: string
+          topic: string
+          updated_at: string
+        }
+        Insert: {
+          author_detail?: string
+          author_kind?: string
+          case_id: string
+          created_at?: string
+          created_by?: string
+          id?: string
+          number: number
+          position?: number
+          status?: string
+          text: string
+          topic?: string
+          updated_at?: string
+        }
+        Update: {
+          author_detail?: string
+          author_kind?: string
+          case_id?: string
+          created_at?: string
+          created_by?: string
+          id?: string
+          number?: number
+          position?: number
+          status?: string
+          text?: string
+          topic?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "amcf_case_questions_case_id_fkey"
+            columns: ["case_id"]
+            referencedRelation: "amcf_cases"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "amcf_case_questions_created_by_fkey"
+            columns: ["created_by"]
+            referencedRelation: "amcf_members"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       amcf_case_stages: {
         Row: {
           id: string
@@ -3485,13 +3842,79 @@ export type Database = {
         }
         Relationships: []
       }
-      amcf_cases: {
+      amcf_case_steps: {
         Row: {
-          administrative_summary: string
-          archived_at: string | null
-          contact_id: string
+          case_id: string
+          completed_at: string | null
           created_at: string
           created_by: string
+          detail: string
+          id: string
+          label: string
+          next_action: string
+          next_action_on: string | null
+          position: number
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          case_id: string
+          completed_at?: string | null
+          created_at?: string
+          created_by?: string
+          detail?: string
+          id?: string
+          label: string
+          next_action?: string
+          next_action_on?: string | null
+          position?: number
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          case_id?: string
+          completed_at?: string | null
+          created_at?: string
+          created_by?: string
+          detail?: string
+          id?: string
+          label?: string
+          next_action?: string
+          next_action_on?: string | null
+          position?: number
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "amcf_case_steps_case_id_fkey"
+            columns: ["case_id"]
+            referencedRelation: "amcf_cases"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "amcf_case_steps_created_by_fkey"
+            columns: ["created_by"]
+            referencedRelation: "amcf_members"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      amcf_cases: {
+        Row: {
+          action_type: string | null
+          administrative_summary: string
+          archived_at: string | null
+          case_secret: boolean
+          claim_summary: string | null
+          claimant: string | null
+          cnj_number: string | null
+          contact_id: string
+          court: string | null
+          court_unit: string | null
+          created_at: string
+          created_by: string
+          defendant: string | null
           due_on: string | null
           id: string
           opened_on: string
@@ -3504,11 +3927,19 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          action_type?: string | null
           administrative_summary?: string
           archived_at?: string | null
+          case_secret?: boolean
+          claim_summary?: string | null
+          claimant?: string | null
+          cnj_number?: string | null
           contact_id: string
+          court?: string | null
+          court_unit?: string | null
           created_at?: string
           created_by?: string
+          defendant?: string | null
           due_on?: string | null
           id?: string
           opened_on?: string
@@ -3521,11 +3952,19 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          action_type?: string | null
           administrative_summary?: string
           archived_at?: string | null
+          case_secret?: boolean
+          claim_summary?: string | null
+          claimant?: string | null
+          cnj_number?: string | null
           contact_id?: string
+          court?: string | null
+          court_unit?: string | null
           created_at?: string
           created_by?: string
+          defendant?: string | null
           due_on?: string | null
           id?: string
           opened_on?: string
@@ -3637,6 +4076,61 @@ export type Database = {
           },
         ]
       }
+      amcf_court_sources: {
+        Row: {
+          coverage: string[]
+          created_at: string
+          created_by: string | null
+          credential_name: string | null
+          enabled: boolean
+          endpoint: string
+          id: string
+          kind: string
+          label: string
+          last_check_at: string | null
+          last_status: string
+          uncovered_note: string
+          updated_at: string
+        }
+        Insert: {
+          coverage?: string[]
+          created_at?: string
+          created_by?: string | null
+          credential_name?: string | null
+          enabled?: boolean
+          endpoint?: string
+          id?: string
+          kind?: string
+          label: string
+          last_check_at?: string | null
+          last_status?: string
+          uncovered_note?: string
+          updated_at?: string
+        }
+        Update: {
+          coverage?: string[]
+          created_at?: string
+          created_by?: string | null
+          credential_name?: string | null
+          enabled?: boolean
+          endpoint?: string
+          id?: string
+          kind?: string
+          label?: string
+          last_check_at?: string | null
+          last_status?: string
+          uncovered_note?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "amcf_court_sources_created_by_fkey"
+            columns: ["created_by"]
+            referencedRelation: "amcf_members"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       amcf_document_files: {
         Row: {
           content: string
@@ -3662,46 +4156,174 @@ export type Database = {
           },
         ]
       }
+      amcf_document_jobs: {
+        Row: {
+          attempts: number
+          created_at: string
+          detail: Json
+          document_id: string
+          finished_at: string | null
+          id: string
+          kind: string
+          last_error: string | null
+          requested_by: string | null
+          started_at: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          attempts?: number
+          created_at?: string
+          detail?: Json
+          document_id: string
+          finished_at?: string | null
+          id?: string
+          kind: string
+          last_error?: string | null
+          requested_by?: string | null
+          started_at?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          attempts?: number
+          created_at?: string
+          detail?: Json
+          document_id?: string
+          finished_at?: string | null
+          id?: string
+          kind?: string
+          last_error?: string | null
+          requested_by?: string | null
+          started_at?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "amcf_document_jobs_document_id_fkey"
+            columns: ["document_id"]
+            referencedRelation: "amcf_documents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "amcf_document_jobs_requested_by_fkey"
+            columns: ["requested_by"]
+            referencedRelation: "amcf_members"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      amcf_document_pages: {
+        Row: {
+          char_count: number
+          content: string
+          created_at: string
+          document_id: string
+          extraction_status: string
+          id: string
+          page_number: number
+        }
+        Insert: {
+          char_count?: number
+          content?: string
+          created_at?: string
+          document_id: string
+          extraction_status?: string
+          id?: string
+          page_number: number
+        }
+        Update: {
+          char_count?: number
+          content?: string
+          created_at?: string
+          document_id?: string
+          extraction_status?: string
+          id?: string
+          page_number?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "amcf_document_pages_document_id_fkey"
+            columns: ["document_id"]
+            referencedRelation: "amcf_documents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       amcf_documents: {
         Row: {
           case_id: string
           category: string
+          category_confirmed: boolean
+          category_confirmed_at: string | null
+          category_confirmed_by: string | null
           contact_id: string | null
+          content_hash: string | null
           created_at: string
           document_date: string | null
+          extracted_at: string | null
+          extraction_engine: string | null
           file_name: string
           id: string
           mime_type: string
           size_bytes: number
           storage_path: string
+          suggested_category: string | null
+          text_chars: number
+          text_error: string | null
+          text_pages: number
+          text_status: string
           title: string
           uploaded_by: string
         }
         Insert: {
           case_id: string
           category?: string
+          category_confirmed?: boolean
+          category_confirmed_at?: string | null
+          category_confirmed_by?: string | null
           contact_id?: string | null
+          content_hash?: string | null
           created_at?: string
           document_date?: string | null
+          extracted_at?: string | null
+          extraction_engine?: string | null
           file_name: string
           id?: string
           mime_type: string
           size_bytes: number
           storage_path: string
+          suggested_category?: string | null
+          text_chars?: number
+          text_error?: string | null
+          text_pages?: number
+          text_status?: string
           title: string
           uploaded_by?: string
         }
         Update: {
           case_id?: string
           category?: string
+          category_confirmed?: boolean
+          category_confirmed_at?: string | null
+          category_confirmed_by?: string | null
           contact_id?: string | null
+          content_hash?: string | null
           created_at?: string
           document_date?: string | null
+          extracted_at?: string | null
+          extraction_engine?: string | null
           file_name?: string
           id?: string
           mime_type?: string
           size_bytes?: number
           storage_path?: string
+          suggested_category?: string | null
+          text_chars?: number
+          text_error?: string | null
+          text_pages?: number
+          text_status?: string
           title?: string
           uploaded_by?: string
         }
@@ -3713,6 +4335,12 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "amcf_documents_category_confirmed_by_fkey"
+            columns: ["category_confirmed_by"]
+            referencedRelation: "amcf_members"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "amcf_documents_contact_id_fkey"
             columns: ["contact_id"]
             referencedRelation: "amcf_contacts"
@@ -3721,6 +4349,128 @@ export type Database = {
           {
             foreignKeyName: "amcf_documents_uploaded_by_fkey"
             columns: ["uploaded_by"]
+            referencedRelation: "amcf_members"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      amcf_exam_findings: {
+        Row: {
+          case_id: string
+          created_at: string
+          detail: string
+          exam_id: string
+          id: string
+          kind: string
+          recorded_by: string
+          source_document_id: string | null
+          source_page: number | null
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          case_id: string
+          created_at?: string
+          detail?: string
+          exam_id: string
+          id?: string
+          kind?: string
+          recorded_by?: string
+          source_document_id?: string | null
+          source_page?: number | null
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          case_id?: string
+          created_at?: string
+          detail?: string
+          exam_id?: string
+          id?: string
+          kind?: string
+          recorded_by?: string
+          source_document_id?: string | null
+          source_page?: number | null
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "amcf_exam_findings_case_id_fkey"
+            columns: ["case_id"]
+            referencedRelation: "amcf_cases"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "amcf_exam_findings_exam_id_fkey"
+            columns: ["exam_id"]
+            referencedRelation: "amcf_exams"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "amcf_exam_findings_recorded_by_fkey"
+            columns: ["recorded_by"]
+            referencedRelation: "amcf_members"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "amcf_exam_findings_source_document_id_fkey"
+            columns: ["source_document_id"]
+            referencedRelation: "amcf_documents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      amcf_exams: {
+        Row: {
+          case_id: string
+          created_at: string
+          created_by: string
+          exam_on: string
+          examined_party: string
+          id: string
+          method_notes: string
+          modality: string
+          place: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          case_id: string
+          created_at?: string
+          created_by?: string
+          exam_on: string
+          examined_party?: string
+          id?: string
+          method_notes?: string
+          modality?: string
+          place?: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          case_id?: string
+          created_at?: string
+          created_by?: string
+          exam_on?: string
+          examined_party?: string
+          id?: string
+          method_notes?: string
+          modality?: string
+          place?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "amcf_exams_case_id_fkey"
+            columns: ["case_id"]
+            referencedRelation: "amcf_cases"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "amcf_exams_created_by_fkey"
+            columns: ["created_by"]
             referencedRelation: "amcf_members"
             referencedColumns: ["id"]
           },
@@ -4037,6 +4787,204 @@ export type Database = {
         }
         Relationships: []
       }
+      amcf_movement_syncs: {
+        Row: {
+          case_id: string
+          coverage: string[]
+          created_by: string | null
+          detail: Json
+          error: string | null
+          finished_at: string | null
+          id: string
+          items_duplicated: number
+          items_found: number
+          items_new: number
+          source_kind: string
+          started_at: string
+          status: string
+        }
+        Insert: {
+          case_id: string
+          coverage?: string[]
+          created_by?: string | null
+          detail?: Json
+          error?: string | null
+          finished_at?: string | null
+          id?: string
+          items_duplicated?: number
+          items_found?: number
+          items_new?: number
+          source_kind: string
+          started_at?: string
+          status: string
+        }
+        Update: {
+          case_id?: string
+          coverage?: string[]
+          created_by?: string | null
+          detail?: Json
+          error?: string | null
+          finished_at?: string | null
+          id?: string
+          items_duplicated?: number
+          items_found?: number
+          items_new?: number
+          source_kind?: string
+          started_at?: string
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "amcf_movement_syncs_case_id_fkey"
+            columns: ["case_id"]
+            referencedRelation: "amcf_cases"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "amcf_movement_syncs_created_by_fkey"
+            columns: ["created_by"]
+            referencedRelation: "amcf_members"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      amcf_movements: {
+        Row: {
+          case_id: string
+          classification: string
+          classification_note: string
+          classified_by: string
+          created_at: string
+          created_by: string
+          dedupe_hash: string
+          detail: string
+          external_ref: string | null
+          id: string
+          needs_human_review: boolean
+          occurred_at: string | null
+          occurred_on: string
+          review_state: string
+          reviewed_at: string | null
+          reviewed_by: string | null
+          source: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          case_id: string
+          classification?: string
+          classification_note?: string
+          classified_by?: string
+          created_at?: string
+          created_by?: string
+          dedupe_hash: string
+          detail?: string
+          external_ref?: string | null
+          id?: string
+          needs_human_review?: boolean
+          occurred_at?: string | null
+          occurred_on: string
+          review_state?: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          source?: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          case_id?: string
+          classification?: string
+          classification_note?: string
+          classified_by?: string
+          created_at?: string
+          created_by?: string
+          dedupe_hash?: string
+          detail?: string
+          external_ref?: string | null
+          id?: string
+          needs_human_review?: boolean
+          occurred_at?: string | null
+          occurred_on?: string
+          review_state?: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          source?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "amcf_movements_case_id_fkey"
+            columns: ["case_id"]
+            referencedRelation: "amcf_cases"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "amcf_movements_created_by_fkey"
+            columns: ["created_by"]
+            referencedRelation: "amcf_members"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "amcf_movements_reviewed_by_fkey"
+            columns: ["reviewed_by"]
+            referencedRelation: "amcf_members"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      amcf_notifications: {
+        Row: {
+          body: string
+          case_id: string | null
+          created_at: string
+          id: string
+          kind: string
+          member_id: string
+          read_at: string | null
+          resource: string | null
+          resource_id: string | null
+          title: string
+        }
+        Insert: {
+          body?: string
+          case_id?: string | null
+          created_at?: string
+          id?: string
+          kind: string
+          member_id: string
+          read_at?: string | null
+          resource?: string | null
+          resource_id?: string | null
+          title: string
+        }
+        Update: {
+          body?: string
+          case_id?: string | null
+          created_at?: string
+          id?: string
+          kind?: string
+          member_id?: string
+          read_at?: string | null
+          resource?: string | null
+          resource_id?: string | null
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "amcf_notifications_case_id_fkey"
+            columns: ["case_id"]
+            referencedRelation: "amcf_cases"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "amcf_notifications_member_id_fkey"
+            columns: ["member_id"]
+            referencedRelation: "amcf_members"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       amcf_opportunities: {
         Row: {
           contact_id: string
@@ -4260,6 +5208,70 @@ export type Database = {
           },
         ]
       }
+      amcf_question_answers: {
+        Row: {
+          answer: string
+          case_id: string
+          created_at: string
+          created_by: string
+          id: string
+          question_id: string
+          reviewed_at: string | null
+          reviewed_by: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          answer?: string
+          case_id: string
+          created_at?: string
+          created_by?: string
+          id?: string
+          question_id: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          answer?: string
+          case_id?: string
+          created_at?: string
+          created_by?: string
+          id?: string
+          question_id?: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "amcf_question_answers_case_id_fkey"
+            columns: ["case_id"]
+            referencedRelation: "amcf_cases"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "amcf_question_answers_created_by_fkey"
+            columns: ["created_by"]
+            referencedRelation: "amcf_members"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "amcf_question_answers_question_id_fkey"
+            columns: ["question_id"]
+            referencedRelation: "amcf_case_questions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "amcf_question_answers_reviewed_by_fkey"
+            columns: ["reviewed_by"]
+            referencedRelation: "amcf_members"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       amcf_receivables: {
         Row: {
           amount_cents: number
@@ -4345,6 +5357,207 @@ export type Database = {
           },
         ]
       }
+      amcf_references: {
+        Row: {
+          case_id: string | null
+          citation: string
+          created_at: string
+          created_by: string
+          id: string
+          identifier: string
+          kind: string
+          notes: string
+          updated_at: string
+          verified: boolean
+          verified_at: string | null
+          verified_by: string | null
+        }
+        Insert: {
+          case_id?: string | null
+          citation: string
+          created_at?: string
+          created_by?: string
+          id?: string
+          identifier?: string
+          kind?: string
+          notes?: string
+          updated_at?: string
+          verified?: boolean
+          verified_at?: string | null
+          verified_by?: string | null
+        }
+        Update: {
+          case_id?: string | null
+          citation?: string
+          created_at?: string
+          created_by?: string
+          id?: string
+          identifier?: string
+          kind?: string
+          notes?: string
+          updated_at?: string
+          verified?: boolean
+          verified_at?: string | null
+          verified_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "amcf_references_case_id_fkey"
+            columns: ["case_id"]
+            referencedRelation: "amcf_cases"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "amcf_references_created_by_fkey"
+            columns: ["created_by"]
+            referencedRelation: "amcf_members"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "amcf_references_verified_by_fkey"
+            columns: ["verified_by"]
+            referencedRelation: "amcf_members"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      amcf_report_templates: {
+        Row: {
+          body: string
+          created_at: string
+          created_by: string | null
+          id: string
+          is_default: boolean
+          name: string
+          scope: string
+          updated_at: string
+        }
+        Insert: {
+          body?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_default?: boolean
+          name: string
+          scope?: string
+          updated_at?: string
+        }
+        Update: {
+          body?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_default?: boolean
+          name?: string
+          scope?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "amcf_report_templates_created_by_fkey"
+            columns: ["created_by"]
+            referencedRelation: "amcf_members"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      amcf_reports: {
+        Row: {
+          analysis_id: string | null
+          approval_note: string
+          approved_at: string | null
+          approved_by: string | null
+          based_on: string | null
+          body: string
+          case_id: string
+          created_at: string
+          created_by: string
+          id: string
+          kind: string
+          readiness: Json
+          status: string
+          template_id: string | null
+          title: string
+          updated_at: string
+          version: number
+        }
+        Insert: {
+          analysis_id?: string | null
+          approval_note?: string
+          approved_at?: string | null
+          approved_by?: string | null
+          based_on?: string | null
+          body?: string
+          case_id: string
+          created_at?: string
+          created_by?: string
+          id?: string
+          kind?: string
+          readiness?: Json
+          status?: string
+          template_id?: string | null
+          title: string
+          updated_at?: string
+          version: number
+        }
+        Update: {
+          analysis_id?: string | null
+          approval_note?: string
+          approved_at?: string | null
+          approved_by?: string | null
+          based_on?: string | null
+          body?: string
+          case_id?: string
+          created_at?: string
+          created_by?: string
+          id?: string
+          kind?: string
+          readiness?: Json
+          status?: string
+          template_id?: string | null
+          title?: string
+          updated_at?: string
+          version?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "amcf_reports_analysis_id_fkey"
+            columns: ["analysis_id"]
+            referencedRelation: "amcf_case_analyses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "amcf_reports_approved_by_fkey"
+            columns: ["approved_by"]
+            referencedRelation: "amcf_members"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "amcf_reports_based_on_fkey"
+            columns: ["based_on"]
+            referencedRelation: "amcf_reports"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "amcf_reports_case_id_fkey"
+            columns: ["case_id"]
+            referencedRelation: "amcf_cases"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "amcf_reports_created_by_fkey"
+            columns: ["created_by"]
+            referencedRelation: "amcf_members"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "amcf_reports_template_id_fkey"
+            columns: ["template_id"]
+            referencedRelation: "amcf_report_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       amcf_settings: {
         Row: {
           app_origin: string | null
@@ -4371,6 +5584,100 @@ export type Database = {
           whatsapp?: string
         }
         Relationships: []
+      }
+      amcf_source_refs: {
+        Row: {
+          case_id: string
+          created_at: string
+          created_by: string
+          document_id: string | null
+          finding_id: string | null
+          id: string
+          movement_id: string | null
+          owner_id: string
+          owner_kind: string
+          page_number: number | null
+          question_id: string | null
+          quote: string
+          reference_id: string | null
+          source_kind: string
+        }
+        Insert: {
+          case_id: string
+          created_at?: string
+          created_by?: string
+          document_id?: string | null
+          finding_id?: string | null
+          id?: string
+          movement_id?: string | null
+          owner_id: string
+          owner_kind: string
+          page_number?: number | null
+          question_id?: string | null
+          quote?: string
+          reference_id?: string | null
+          source_kind: string
+        }
+        Update: {
+          case_id?: string
+          created_at?: string
+          created_by?: string
+          document_id?: string | null
+          finding_id?: string | null
+          id?: string
+          movement_id?: string | null
+          owner_id?: string
+          owner_kind?: string
+          page_number?: number | null
+          question_id?: string | null
+          quote?: string
+          reference_id?: string | null
+          source_kind?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "amcf_source_refs_case_id_fkey"
+            columns: ["case_id"]
+            referencedRelation: "amcf_cases"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "amcf_source_refs_created_by_fkey"
+            columns: ["created_by"]
+            referencedRelation: "amcf_members"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "amcf_source_refs_document_id_fkey"
+            columns: ["document_id"]
+            referencedRelation: "amcf_documents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "amcf_source_refs_finding_id_fkey"
+            columns: ["finding_id"]
+            referencedRelation: "amcf_exam_findings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "amcf_source_refs_movement_id_fkey"
+            columns: ["movement_id"]
+            referencedRelation: "amcf_movements"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "amcf_source_refs_question_id_fkey"
+            columns: ["question_id"]
+            referencedRelation: "amcf_case_questions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "amcf_source_refs_reference_id_fkey"
+            columns: ["reference_id"]
+            referencedRelation: "amcf_references"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       amcf_tasks: {
         Row: {
@@ -4451,6 +5758,18 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: Json
       }
+      amcf_analysis_approve: {
+        Args: { p_analysis: string; p_note?: string }
+        Returns: Json
+      }
+      amcf_analysis_compose: {
+        Args: { p_analysis: string }
+        Returns: Json
+      }
+      amcf_analysis_create: {
+        Args: { p_case: string; p_from?: string; p_title?: string }
+        Returns: string
+      }
       amcf_api_activity_create: {
         Args: {
           p_case_id?: string
@@ -4479,6 +5798,10 @@ export type Database = {
           p_title: string
           p_token: string
         }
+        Returns: Json
+      }
+      amcf_api_case_read: {
+        Args: { p_case_id: string; p_token: string }
         Returns: Json
       }
       amcf_api_contact_upsert: {
@@ -4513,6 +5836,18 @@ export type Database = {
           p_success: boolean
         }
         Returns: undefined
+      }
+      amcf_api_movement_upsert: {
+        Args: {
+          p_case_id: string
+          p_classification?: string
+          p_detail?: string
+          p_external_ref: string
+          p_occurred_on: string
+          p_title: string
+          p_token: string
+        }
+        Returns: Json
       }
       amcf_api_opportunity_stage: {
         Args: {
@@ -4558,6 +5893,10 @@ export type Database = {
         }
         Returns: Json
       }
+      amcf_can_approve: {
+        Args: Record<PropertyKey, never>
+        Returns: boolean
+      }
       amcf_can_case: {
         Args: { target: string }
         Returns: boolean
@@ -4569,6 +5908,34 @@ export type Database = {
       amcf_can_object: {
         Args: { object_name: string }
         Returns: boolean
+      }
+      amcf_case_input_fingerprint: {
+        Args: { target: string }
+        Returns: string
+      }
+      amcf_case_input_summary: {
+        Args: { target: string }
+        Returns: Json
+      }
+      amcf_case_next_action: {
+        Args: { target: string }
+        Returns: Json
+      }
+      amcf_case_readiness: {
+        Args: { target: string }
+        Returns: Json
+      }
+      amcf_case_search: {
+        Args: { p_case: string; p_term: string }
+        Returns: Json
+      }
+      amcf_classify_movement: {
+        Args: { p_detail?: string; p_title: string }
+        Returns: {
+          classification: string
+          matched: string
+          needs_human_review: boolean
+        }[]
       }
       amcf_convert_opportunity: {
         Args: { target: string }
@@ -4598,8 +5965,16 @@ export type Database = {
         Args: { new_role: string; new_status: string; target: string }
         Returns: undefined
       }
+      amcf_my_day: {
+        Args: Record<PropertyKey, never>
+        Returns: Json
+      }
       amcf_report: {
         Args: Record<PropertyKey, never>
+        Returns: Json
+      }
+      amcf_report_approve: {
+        Args: { p_note?: string; p_report: string }
         Returns: Json
       }
       amcf_role: {
@@ -4649,7 +6024,7 @@ export type Database = {
         }
         Relationships: []
       }
-      messages_2026_09_28: {
+      messages_2026_10_04: {
         Row: {
           event: string | null
           extension: string
@@ -4682,7 +6057,7 @@ export type Database = {
         }
         Relationships: []
       }
-      messages_2026_09_29: {
+      messages_2026_10_05: {
         Row: {
           event: string | null
           extension: string
@@ -4715,7 +6090,7 @@ export type Database = {
         }
         Relationships: []
       }
-      messages_2026_09_30: {
+      messages_2026_10_06: {
         Row: {
           event: string | null
           extension: string
@@ -4748,7 +6123,7 @@ export type Database = {
         }
         Relationships: []
       }
-      messages_2026_10_01: {
+      messages_2026_10_07: {
         Row: {
           event: string | null
           extension: string
@@ -4781,7 +6156,7 @@ export type Database = {
         }
         Relationships: []
       }
-      messages_2026_10_02: {
+      messages_2026_10_08: {
         Row: {
           event: string | null
           extension: string
@@ -4814,7 +6189,40 @@ export type Database = {
         }
         Relationships: []
       }
-      messages_2026_10_03: {
+      messages_2026_10_09: {
+        Row: {
+          event: string | null
+          extension: string
+          id: string
+          inserted_at: string
+          payload: Json | null
+          private: boolean | null
+          topic: string
+          updated_at: string
+        }
+        Insert: {
+          event?: string | null
+          extension: string
+          id?: string
+          inserted_at?: string
+          payload?: Json | null
+          private?: boolean | null
+          topic: string
+          updated_at?: string
+        }
+        Update: {
+          event?: string | null
+          extension?: string
+          id?: string
+          inserted_at?: string
+          payload?: Json | null
+          private?: boolean | null
+          topic?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      messages_2026_10_10: {
         Row: {
           event: string | null
           extension: string
