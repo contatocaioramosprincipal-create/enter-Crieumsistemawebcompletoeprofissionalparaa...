@@ -1,0 +1,10 @@
+name = "amcf-independente"
+main = "worker/index.js"
+compatibility_date = "2026-10-14"
+workers_dev = true
+
+[[d1_databases]]
+binding = "DB"
+database_name = "amcf-independente-db"
+database_id = "1db9a8cc-83d6-48dc-87e3-10924bdc777c"
+migrations_dir = "db"
