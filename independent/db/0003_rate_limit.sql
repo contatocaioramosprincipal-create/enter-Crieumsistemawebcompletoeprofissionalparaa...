@@ -1,0 +1,1 @@
+CREATE TABLE IF NOT EXISTS auth_attempts(ident TEXT PRIMARY KEY, failures INTEGER NOT NULL DEFAULT 0, last_try TEXT NOT NULL); CREATE INDEX IF NOT EXISTS auth_attempts_last_try_idx ON auth_attempts(last_try);
