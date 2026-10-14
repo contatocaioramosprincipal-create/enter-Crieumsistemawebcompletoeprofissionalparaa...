@@ -54,3 +54,11 @@ O Supabase Free tem cotas e pode pausar projeto inativo. Avaliar quotas reais ao
 ## GitHub/segurança
 
 Repositório original está visível publicamente. Nunca commitar senhas, tokens, dados de pacientes, service role, uploads ou dumps. Revisar histórico antes de habilitar integração e testar com dados sintéticos.
+
+## Infraestrutura provisionada em 14/10/2026
+- Projeto Supabase Free na região sa-east-1: `phjhedoavxicpsvuxmls`, ACTIVE_HEALTHY na criação.
+- Migrações de produção aplicadas na ordem, todas com success=true.
+- Storage bucket privado `amcf-documentos` confirmado.
+- Edge Functions `amcf-files` e `amcf-invite` publicadas (JWT exigido).
+- Cloudflare Pages `amcf-dr-adilson-original` criado e ligado à branch `amcf-react-supabase-independente`, com URL e chave *pública* do Supabase em variáveis de build. Ainda sem deployment verificado.
+- Autenticação/usuários, QA, migração de dados legados, repositório público, documentos clínicos e backups continuam pendentes. Não declarar produção liberada.
