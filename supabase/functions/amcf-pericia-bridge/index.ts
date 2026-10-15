@@ -90,9 +90,9 @@ Deno.serve(async (request)=>{
    const controller=new AbortController();
    const timer=setTimeout(()=>controller.abort(),140000);
    try{
-     const res=await fetch(url+"/functions/v1/amcf-ai-deliver",{method:"POST",headers:{"Content-Type":"application/json","Authorization":"Bearer "+token},body:JSON.stringify({actor_id:userData.user.id,case_id:caseId,conversation_id:conversationId,session_id:sessionId,chat_input:chatInput,attachment_ids:attachmentIds}),signal:controller.signal});
+     const res=await fetch(url+"/functions/v1/amcf-ai-deliver",{method:"POST",headers:{"Content-Type":"application/json","Authorization":"Bearer "+token},body:JSON.stringify({actor_id:userData.user.id,case_id:caseId,conversation_id:conversationId,session_id:sessionId,chat_input:chatInput,attachment_ids:attachmentIds,save_to_case:input.saveToCase===true,file_names:Array.isArray(input.fileNames)?input.fileNames.slice(0,3).map((x)=>String(x??"").slice(0,180)):[]}),signal:controller.signal});
      const out=await res.json().catch(()=>null);
-     if(res.ok&&out?.ok===true&&typeof out.answer==="string")return json({ok:true,answer:out.answer},200,allowed);
+     if(res.ok&&out?.ok===true&&typeof out.answer==="string")return json({ok:true,answer:out.answer,...(typeof out.saved==="number"?{saved:out.saved,total:out.total}:{})},200,allowed);
      const code=res.status===404||res.status===423||res.status===503?res.status:502;
      return json({ok:false,error:typeof out?.error==="string"?out.error:"Assistente não respondeu"},code,allowed);
    }catch{await audit("failure",503,caseId,attachmentIds.length);return json({ok:false,error:"Assistente indisponível. Tente novamente."},503,allowed);}

@@ -3,6 +3,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.4";
 // Entrega anexos em quarentena ao n8n por URL assinada curta e SEMPRE apaga os arquivos depois, com sucesso ou falha.
 const BUCKET = "amcf-ai-staging";
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const DOCS_BUCKET = "amcf-documentos";
 const out = (obj: unknown, status = 200) => new Response(JSON.stringify(obj), { status, headers: { "Content-Type": "application/json", "Cache-Control": "no-store" } });
 async function secureEquals(a: string, b: string) {
   const enc = new TextEncoder();
@@ -31,10 +32,13 @@ Deno.serve(async (req) => {
   const sessionId = String(input.session_id || "").slice(0, 200);
   const chatInput = typeof input.chat_input === "string" ? input.chat_input.trim() : "";
   const ids = Array.isArray(input.attachment_ids) ? [...new Set(input.attachment_ids.map(String))] : [];
+  const saveToCase = input.save_to_case === true;
+  const rawNames = Array.isArray(input.file_names) ? input.file_names.map((x) => String(x ?? "")) : [];
   if (!uuid.test(actor) || !uuid.test(caseId) || !uuid.test(conversation) || !chatInput || chatInput.length > 5000 || ids.length < 1 || ids.length > 3 || !ids.every((id) => uuid.test(id))) return out({ ok: false, error: "Dados inválidos" }, 400);
 
+  let saved: number | null = null;
   const audit = async (outcome: "success" | "failure" | "denied", statusCode: number, deleted: boolean | null) => {
-    const result = await svc.from("amcf_ai_audit_events").insert({ actor_id: actor, case_id: caseId, action: "chat", outcome, status_code: statusCode, duration_ms: Math.min(300000, Date.now() - started), details: { channel: "amcf_bridge", attachment_count: ids.length, ...(deleted === null ? {} : { deleted }) } });
+    const result = await svc.from("amcf_ai_audit_events").insert({ actor_id: actor, case_id: caseId, action: "chat", outcome, status_code: statusCode, duration_ms: Math.min(300000, Date.now() - started), details: { channel: "amcf_bridge", attachment_count: ids.length, ...(deleted === null ? {} : { deleted }), ...(saved === null ? {} : { saved }) } });
     if (result.error) console.error("AMCF audit write failed", result.error.code);
   };
 
@@ -83,11 +87,35 @@ Deno.serve(async (req) => {
   } catch (e) { console.error("AMCF files delivery failure", e instanceof Error ? e.name : "unknown"); status = 503; }
   finally { clearTimeout(timer); }
 
+  // Opcional: guarda cópia no processo (mesmo bucket privado e mesmas regras de acesso da aba Documentos) só quando a leitura deu certo.
+  if (saveToCase && outcome === "success") {
+    saved = 0;
+    const nameById = new Map(ids.map((id, i) => [id, rawNames[i] || ""]));
+    for (const file of claimed as { id: string; storage_path: string; media_type: string }[]) {
+      try {
+        const dl = await svc.storage.from(BUCKET).download(file.storage_path);
+        if (dl.error || !dl.data || dl.data.size < 1) continue;
+        const bytes = new Uint8Array(await dl.data.arrayBuffer());
+        const ext = file.media_type === "application/pdf" ? ".pdf" : file.media_type === "image/png" ? ".png" : ".jpg";
+        let original = (nameById.get(file.id) || "").replace(/[\u0000-\u001f\\/]/g, "_").trim().slice(0, 170);
+        if (!original) original = "laudo-anexado" + ext;
+        const safe = original.replace(/[^a-zA-Z0-9._-]/g, "_").slice(-120) || "laudo" + ext;
+        const path = caseId + "/" + crypto.randomUUID() + "-" + safe;
+        const hash = Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256", bytes))).map((b) => b.toString(16).padStart(2, "0")).join("");
+        const up = await svc.storage.from(DOCS_BUCKET).upload(path, bytes, { contentType: file.media_type, upsert: false });
+        if (up.error) continue;
+        const ins = await svc.from("amcf_documents").insert({ case_id: caseId, category: "laudo", title: original.replace(/\.[A-Za-z0-9]{2,4}$/, "").slice(0, 200).padEnd(2, " "), file_name: original, mime_type: file.media_type, size_bytes: bytes.length, storage_path: path, content_hash: hash, uploaded_by: actor });
+        if (ins.error) { await svc.storage.from(DOCS_BUCKET).remove([path]); continue; }
+        saved++;
+      } catch { /* segue: a leitura já foi feita */ }
+    }
+  }
+
   // Apaga SEMPRE: objeto primeiro, depois o registro. Se falhar, expira já para a limpeza horária tentar de novo.
   let deleted = false;
   const removed = await svc.storage.from(BUCKET).remove((claimed as { storage_path: string }[]).map((x) => x.storage_path));
   if (!removed.error) { const gone = await svc.from("amcf_ai_staged_files").delete().in("id", ids); deleted = !gone.error; }
   if (!deleted) await svc.from("amcf_ai_staged_files").update({ expires_at: new Date().toISOString() }).in("id", ids);
   await audit(outcome, status, deleted);
-  return out({ ...payload, deleted }, status);
+  return out({ ...payload, deleted, ...(saveToCase && outcome === "success" ? { saved, total: ids.length } : {}) }, status);
 });

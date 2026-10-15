@@ -24,6 +24,7 @@ export default function PericiaAssistantPage({ compact = false }: { compact?: bo
   const [attachmentsEnabled, setAttachmentsEnabled] = useState(false);
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [uploading, setUploading] = useState(false);
+  const [saveToCase, setSaveToCase] = useState(true);
   const [attachError, setAttachError] = useState('');
   const fileInput = useRef<HTMLInputElement>(null);
   // Descarta no servidor os anexos ainda não enviados (best-effort; o servidor também expira e apaga).
@@ -69,10 +70,10 @@ export default function PericiaAssistantPage({ compact = false }: { compact?: bo
     setBusy(true);
     try {
       const body: Record<string, unknown> = { chatInput, caseId, conversationId };
-      if (sending.length) body.attachmentIds = sending.map(a => a.id);
+      if (sending.length) { body.attachmentIds = sending.map(a => a.id); body.fileNames = sending.map(a => a.name); body.saveToCase = saveToCase; }
       const { data, error } = await supabase.functions.invoke('amcf-pericia-bridge', { body });
       if (error || !data?.ok || !data?.answer) throw new Error(data?.error || 'A IA não respondeu. Confira se o fluxo está publicado.');
-      setMessages(current => [...current, { id: crypto.randomUUID(), role: 'assistant', text: String(data.answer) }]);
+      setMessages(current => [...current, { id: crypto.randomUUID(), role: 'assistant', text: String(data.answer) + (sending.length && saveToCase ? (data.saved === sending.length ? '\n\n✅ Arquivo(s) salvo(s) em Documentos do processo.' : '\n\n⚠️ A leitura foi feita, mas não consegui salvar todos os arquivos no processo (' + String(data.saved ?? 0) + ' de ' + sending.length + '). Envie-os pela aba Documentos.') : sending.length ? '\n\nArquivo(s) apagado(s) após a leitura.' : '') }]);
     } catch (failure) {
       // O servidor apaga os arquivos ao processar; se falhou antes disso, descarta o que sobrou.
       if (sending.length && caseId) discardAll(sending, caseId, conversationId);
@@ -143,6 +144,7 @@ export default function PericiaAssistantPage({ compact = false }: { compact?: bo
         <label htmlFor={compact ? "amcf-assistant-compact-input" : "amcf-assistant-input"} className="sr-only">Mensagem para a assistente</label>
         {(attachments.length > 0 || attachError) && <div className="mb-2 flex flex-wrap items-center gap-2 text-xs">
           {attachments.map(a => <span key={a.id} className="inline-flex items-center gap-1 rounded-full border bg-muted px-2 py-1"><Paperclip size={12} />{a.name.length > 28 ? a.name.slice(0, 25) + '…' : a.name}<button type="button" aria-label={'Remover ' + a.name} onClick={() => removeAttachment(a)} disabled={busy}><X size={12} /></button></span>)}
+          {attachments.length > 0 && <label className="ml-auto inline-flex items-center gap-2"><input type="checkbox" checked={saveToCase} onChange={e => setSaveToCase(e.target.checked)} disabled={busy} />Salvar no processo (Documentos)</label>}
           {attachError && <span role="alert" className="text-destructive">{attachError}</span>}
         </div>}
         <div className="flex items-end gap-3">
