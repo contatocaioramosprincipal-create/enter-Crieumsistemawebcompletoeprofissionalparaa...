@@ -6,7 +6,6 @@ const corsFor = (origin: string) => ({
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
   'Vary': 'Origin',
 });
-let cors = corsFor('');
 
 const BUCKET = 'amcf-documentos';
 const APP_MAX_BYTES = 200 * 1024 * 1024; // teto lógico do produto; o limite efetivo é o menor entre este e o do bucket/plano
@@ -15,7 +14,6 @@ const SIGNATURES: Record<string, number[]> = { 'application/pdf': [0x25, 0x50, 0
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 const CATEGORIES = ['procuracao', 'processo', 'laudo', 'exame', 'quesitos', 'contrato', 'comprovante', 'outro'];
 
-const reply = (status: number, body: unknown) => new Response(JSON.stringify(body), { status, headers: { ...cors, 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } });
 const BASE = () => Deno.env.get('SUPABASE_URL')!;
 const ANON = () => Deno.env.get('SUPABASE_ANON_KEY')!;
 const SERVICE = () => Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
@@ -34,7 +32,10 @@ const removeObject = (path: string) => withService(`/storage/v1/object/${BUCKET}
 
 Deno.serve(async (request: Request) => {
   const origin = request.headers.get('Origin') || '';
-  cors = corsFor(origin);
+  const cors = corsFor(origin);
+  const reply = (status: number, body: unknown) => new Response(JSON.stringify(body), {
+    status, headers: { ...cors, 'Content-Type': 'application/json', 'Cache-Control': 'no-store' },
+  });
   if (origin && !ALLOWED_ORIGINS.has(origin)) return reply(403, { error: 'Origem não autorizada.' });
   if (request.method === 'OPTIONS') return new Response(null, { headers: cors });
   const requestId = crypto.randomUUID();
