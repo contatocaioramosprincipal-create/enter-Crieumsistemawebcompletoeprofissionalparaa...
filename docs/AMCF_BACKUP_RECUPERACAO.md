@@ -17,3 +17,12 @@ O `pg_dump` **não contém bytes dos PDFs ou fotos** do bucket `amcf-documentos`
 - Restaurar num ambiente isolado e validar autenticação, RLS, arquivos, integrações e consistência de IDs.
 - Nunca habilitar uso com prontuários reais sem prova da restauração e acordo de proteção de dados.
 - O projeto Supabase Free não substitui um plano de backup com garantia de restauração.
+
+## Checklist do teste de restauração (executar quando o backup for ativado)
+1. Gerar dump cifrado (`scripts/amcf_backup_encrypted.sh`), registrar data/hora e tamanho.
+2. Copiar para local independente do Supabase; conferir `sha256sum -c`.
+3. Descriptografar com a chave privada do responsável (guardada fora do servidor).
+4. Restaurar em projeto/banco descartável e comparar contagens de tabelas-chave (`amcf_cases`, `amcf_movements`, `amcf_documents`, `amcf_reports`) e a presença das políticas RLS.
+5. Com um arquivo fictício no bucket `amcf-documentos`, recuperar o arquivo pelo backup do Storage e conferir o `content_hash` do registro.
+6. Registrar RPO e RTO medidos e anexar o resultado a este documento. Sem esse registro, o backup NÃO conta como validado.
+Status atual: adiado pelo responsável; nada configurado.
