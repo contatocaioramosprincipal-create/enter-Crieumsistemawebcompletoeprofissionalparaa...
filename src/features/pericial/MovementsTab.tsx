@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Check, EyeOff, Plus, Upload } from 'lucide-react';
+import { Check, EyeOff, Plus, RefreshCw, Upload } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -24,6 +24,21 @@ export default function MovementsTab({ caseId }: { caseId: string }) {
     queryKey: ['case-movements', caseId],
     queryFn: async () => fail<Movement[]>(supabase.from('amcf_movements').select('*').eq('case_id', caseId).order('occurred_on', { ascending: false }).order('created_at', { ascending: false }).limit(500)),
   });
+  const datajud = useQuery({
+    queryKey: ['datajud-status'], staleTime: 300000, retry: false,
+    queryFn: async () => { const { data, error } = await supabase.functions.invoke('amcf-datajud', { body: { action: 'status' } }); return !error && data?.ok === true && data?.configured === true; },
+  });
+  const [syncReport, setSyncReport] = useState('');
+  const [syncing, setSyncing] = useState(false);
+  const syncDatajud = async () => {
+    setSyncing(true); setSyncReport('');
+    try {
+      const { data, error } = await supabase.functions.invoke('amcf-datajud', { body: { caseId } });
+      if (error || !data?.ok) { setSyncReport(typeof data?.error === 'string' ? data.error : 'Não foi possível consultar o DataJud agora.'); return; }
+      setSyncReport(data.message || `Encontradas: ${data.found}. Novas: ${data.added}. Já existentes: ${data.duplicated}. Fonte: DataJud (${String(data.tribunal || '').toUpperCase()}), com possível atraso e sem processos em segredo de justiça. Revise antes de agir.`);
+      await movements.refetch();
+    } catch { setSyncReport('Não foi possível consultar o DataJud agora.'); } finally { setSyncing(false); }
+  };
   const rows = (movements.data || []).filter(item => filter === 'todas' ? true : filter === 'nova' ? item.review_state === 'nova' : (item.classification === 'requer_acao' || item.classification === 'possivel_prazo' || item.classification === 'agenda') && item.review_state !== 'ignorada');
   const add = () => mutate(() => supabase.from('amcf_movements').insert({ case_id: caseId, occurred_on: form.occurred_on, title: form.title.trim(), detail: form.detail.trim(), source: 'manual' }).select('id'), 'Movimentação registrada.').then(ok => { if (ok) setForm({ occurred_on: '', title: '', detail: '' }); });
   const review = (item: Movement, state: 'revisada' | 'ignorada') => mutate(() => supabase.from('amcf_movements').update({ review_state: state }).eq('id', item.id).select('id'), state === 'revisada' ? 'Movimentação marcada como revisada.' : 'Movimentação ignorada.');
@@ -46,12 +61,17 @@ export default function MovementsTab({ caseId }: { caseId: string }) {
   };
   return <div className="space-y-6">
     <Section title="Linha do tempo do processo" description="Mostra somente o que foi registrado ou importado. Nenhuma movimentação ou prazo é inventado: termos que podem indicar prazo são apenas sinalizados para o responsável confirmar.">
+      <div className="mb-4 flex flex-wrap items-center gap-2">
+        <Button type="button" size="sm" variant="outline" disabled={busy || syncing || !datajud.data} onClick={() => void syncDatajud()} title={datajud.data ? 'Consulta o DataJud (CNJ) pelo número do processo' : 'Consulta automática ainda não configurada'}><RefreshCw />{syncing ? 'Consultando…' : 'Atualizar pelo DataJud'}</Button>
+        {!datajud.isPending && !datajud.data && <span className="text-[11px] text-muted-foreground">Consulta automática ainda não configurada: use a importação manual abaixo.</span>}
+      </div>
+      {syncReport && <pre className="mb-4 whitespace-pre-wrap rounded-md border bg-muted/40 p-3 text-xs">{syncReport}</pre>}
       <div className="mb-4 flex flex-wrap gap-2" role="group" aria-label="Filtro de movimentações">
         {([['todas', 'Todas'], ['nova', 'Não revisadas'], ['acao', 'Exigem atenção']] as const).map(([key, name]) => <Button key={key} type="button" size="sm" variant={filter === key ? 'default' : 'outline'} onClick={() => setFilter(key)}>{name}</Button>)}
       </div>
       {movements.isPending && <p className="text-xs text-muted-foreground">Carregando movimentações…</p>}
       {movements.isError && <p role="alert" className="text-xs text-destructive">Não foi possível carregar as movimentações.</p>}
-      {!movements.isPending && !movements.isError && !rows.length && <Empty title="Nenhuma movimentação" description="Registre uma movimentação ou importe várias de uma vez abaixo. A integração automática com o DataJud será ligada em uma fase própria." />}
+      {!movements.isPending && !movements.isError && !rows.length && <Empty title="Nenhuma movimentação" description="Registre uma movimentação ou importe várias de uma vez abaixo. Quando a consulta ao DataJud estiver configurada, use o botão acima." />}
       <ol className="space-y-3">{rows.map(item => <li key={item.id} className="rounded-md border px-4 py-3">
         <div className="flex flex-wrap items-center gap-3">
           <span className="text-xs font-semibold tabular-nums">{dateLabel(item.occurred_on)}</span>
