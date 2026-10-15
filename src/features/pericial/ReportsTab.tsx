@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { BadgeCheck, Copy, FileDown, FilePlus, Printer, Save } from 'lucide-react';
 import { downloadWord, printAsPdf } from './exportDoc';
+import { diffLines } from './textDiff';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/features/auth/auth-context';
 import { Button } from '@/components/ui/button';
@@ -24,6 +25,7 @@ export default function ReportsTab({ caseId, header }: { caseId: string; header:
   const [selected, setSelected] = useState('');
   const [body, setBody] = useState<Record<string, string>>({});
   const [note, setNote] = useState('');
+  const [compareId, setCompareId] = useState('');
   const templates = useQuery({ queryKey: ['report-templates'], queryFn: async () => fail<Template[]>(supabase.from('amcf_report_templates').select('*').order('name')) });
   const reports = useQuery({ queryKey: ['case-reports', caseId], queryFn: async () => fail<Report[]>(supabase.from('amcf_reports').select('*').eq('case_id', caseId).order('created_at', { ascending: false })) });
   const readiness = useQuery({ queryKey: ['case-readiness', caseId], queryFn: async () => caseReadiness(caseId) });
@@ -63,6 +65,8 @@ export default function ReportsTab({ caseId, header }: { caseId: string; header:
   const approve = async () => { if (!current) return; if (!window.confirm('Aprovar este documento? Depois de aprovado ele não pode ser alterado: só nova versão.')) return; const result = await runRpc(() => approveReport(current.id, note.trim()), 'Documento aprovado.'); if (result) await cache.invalidateQueries(); };
   const copyText = async () => { if (!current) return; try { await navigator.clipboard.writeText(body[current.id] ?? current.body); } catch { /* sem permissão de área de transferência */ } };
   const text = current ? body[current.id] ?? current.body : '';
+  const other = (reports.data || []).find(item => item.id === compareId && item.id !== current?.id);
+  const diff = current && other ? diffLines(other.body, text) : undefined;
   const exportFile = (kind: 'word' | 'pdf') => {
     if (!current) return;
     const open = (text.match(/\[a preencher pelo perito\]/gi) || []).length;
@@ -91,6 +95,15 @@ export default function ReportsTab({ caseId, header }: { caseId: string; header:
           <Button size="sm" variant="outline" type="button" onClick={() => exportFile('word')}><FileDown />Baixar Word</Button>
           <Button size="sm" variant="outline" type="button" onClick={() => exportFile('pdf')}><Printer />Salvar PDF</Button>
         </div>
+        {reports.data.length > 1 && <div className="border-t pt-4">
+          <label className="field-label" htmlFor="rp-compare">Comparar o texto acima com outra versão</label>
+          <select id="rp-compare" className="native-select max-w-sm" value={compareId} onChange={event => setCompareId(event.target.value)}><option value="">Não comparar</option>{reports.data.filter(item => item.id !== current.id).map(item => <option key={item.id} value={item.id}>v{item.version} · {item.title}</option>)}</select>
+          {other && diff === null && <p className="mt-2 text-xs text-muted-foreground">Texto longo demais para comparar no navegador.</p>}
+          {other && diff && <div className="mt-3 max-h-96 overflow-auto rounded-md border bg-muted/20 p-3 font-mono text-xs leading-5" aria-label="Diferenças entre versões">
+            <p className="mb-2 text-[11px] text-muted-foreground">Vermelho: só na v{other.version}. Verde: só na versão selecionada.</p>
+            {diff.some(line => line.kind !== 'same') ? diff.map((line, index) => <div key={index} className={line.kind === 'add' ? 'bg-success/15' : line.kind === 'del' ? 'bg-destructive/15 line-through' : 'text-muted-foreground'}>{line.kind === 'add' ? '+ ' : line.kind === 'del' ? '− ' : '  '}{line.text || ' '}</div>) : <p>Os textos são idênticos.</p>}
+          </div>}
+        </div>}
         {!locked && canApprove && <div className="border-t pt-4">
           {!!lines.blocking.length && <div className="notice mb-3"><div><strong>Aprovação bloqueada pelo servidor:</strong><ul className="mt-1 list-disc pl-4">{lines.blocking.map(line => <li key={line}>{line}</li>)}</ul></div></div>}
           <label className="field-label" htmlFor="rp-note">Observação da aprovação</label><Input id="rp-note" value={note} onChange={event => setNote(event.target.value)} maxLength={1000} disabled={busy} />
