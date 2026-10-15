@@ -142,6 +142,7 @@ export default function PericiaAssistantPage({ compact = false }: { compact?: bo
       </div>
       <form onSubmit={e => void send(e)} className={compact ? "shrink-0 border-t p-3" : "border-t p-4"}>
         <label htmlFor={compact ? "amcf-assistant-compact-input" : "amcf-assistant-input"} className="sr-only">Mensagem para a assistente</label>
+        {attachmentsEnabled && !caseId && <p className="mb-2 text-xs text-muted-foreground">Para anexar um laudo, escolha acima um processo{cases.length === 0 ? ' (ainda não há nenhum: cadastre em Casos)' : ''}.</p>}
         {(attachments.length > 0 || attachError) && <div className="mb-2 flex flex-wrap items-center gap-2 text-xs">
           {attachments.map(a => <span key={a.id} className="inline-flex items-center gap-1 rounded-full border bg-muted px-2 py-1"><Paperclip size={12} />{a.name.length > 28 ? a.name.slice(0, 25) + '…' : a.name}<button type="button" aria-label={'Remover ' + a.name} onClick={() => removeAttachment(a)} disabled={busy}><X size={12} /></button></span>)}
           {attachments.length > 0 && <label className="ml-auto inline-flex items-center gap-2"><input type="checkbox" checked={saveToCase} onChange={e => setSaveToCase(e.target.checked)} disabled={busy} />Salvar no processo (Documentos)</label>}
