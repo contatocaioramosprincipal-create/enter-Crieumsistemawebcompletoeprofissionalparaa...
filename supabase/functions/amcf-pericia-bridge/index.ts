@@ -24,10 +24,23 @@ Deno.serve(async (request)=>{
  if(assurance!=="aal2")return json({ok:false,error:"Ative MFA antes de utilizar a IA de perícia"},403,allowed);
  const {data:member,error:memberErr}=await supabase.from("amcf_members").select("id,role,status").eq("id",userData.user.id).maybeSingle();
  if(memberErr||!member||member.status!=="active"||!["admin","doctor","assistant"].includes(member.role))return json({ok:false,error:"Usuário sem acesso ativo"},403,allowed);
- const webhook=Deno.env.get("AMCF_N8N_PERICIA_WEBHOOK_URL")||"";
- const secret=Deno.env.get("AMCF_N8N_PERICIA_WEBHOOK_HEADER_KEY")||"";
+ // Prefer encrypted Supabase Vault configuration, readable only by service_role.
+ // Remains disabled until n8n credential and production workflow are verified.
+ const serviceRole=Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")||"";
+ let config: {url?:string; header_key?:string;enabled?:boolean}|null=null;
+ if(serviceRole){
+   const svc=createClient(url,serviceRole,{auth:{persistSession:false,autoRefreshToken:false}});
+   const result=await svc.rpc("amcf_pericia_bridge_config");
+   if(!result.error && result.data && typeof result.data==="object")config=result.data;
+ }
+ const webhook=String(config?.url || Deno.env.get("AMCF_N8N_PERICIA_WEBHOOK_URL") || "");
+ const secret=String(config?.header_key || Deno.env.get("AMCF_N8N_PERICIA_WEBHOOK_HEADER_KEY") || "");
+ const enabled=config===null ? Boolean(Deno.env.get("AMCF_N8N_PERICIA_WEBHOOK_URL")) : config.enabled===true;
  let ready=false;
- try{const dest=new URL(webhook);ready=dest.protocol==="https:"&&dest.hostname==="caioramos.app.n8n.cloud"&&dest.pathname.startsWith("/webhook/")&&secret.length>=32;}catch{}
+ try{
+   const dest=new URL(webhook);
+   ready=enabled&&dest.protocol==="https:"&&dest.hostname==="caioramos.app.n8n.cloud"&&dest.pathname.startsWith("/webhook/")&&secret.length>=32;
+ }catch{}
  let input:Record<string,unknown>;
  try{input=await request.json();}catch{return json({ok:false,error:"JSON inválido"},400,allowed);}
  if(!input||typeof input!=="object"||Array.isArray(input))return json({ok:false,error:"Corpo inválido"},400,allowed);
