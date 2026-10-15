@@ -18,7 +18,7 @@ Deno.serve(async (req) => {
   if (req.method !== "POST") return out({ ok: false }, 405);
   const match = /^Bearer ([a-f0-9]{96})$/.exec(req.headers.get("Authorization") || "");
   if (!match) return out({ ok: false, error: "Unauthorized" }, 401);
-  if (Number(req.headers.get("Content-Length") || 0) > 16000) return out({ ok: false, error: "Payload" }, 413);
+  if (Number(req.headers.get("Content-Length") || 0) > 60000) return out({ ok: false, error: "Payload" }, 413);
   const url = Deno.env.get("SUPABASE_URL") || "", key = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
   if (!url || !key) return out({ ok: false, error: "Unavailable" }, 503);
   const svc = createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false } });
@@ -33,6 +33,7 @@ Deno.serve(async (req) => {
   const chatInput = typeof input.chat_input === "string" ? input.chat_input.trim() : "";
   const ids = Array.isArray(input.attachment_ids) ? [...new Set(input.attachment_ids.map(String))] : [];
   const saveToCase = input.save_to_case === true;
+  const caseContext = typeof input.case_context === "string" ? input.case_context.slice(0, 30000) : "";
   const rawNames = Array.isArray(input.file_names) ? input.file_names.map((x) => String(x ?? "")) : [];
   if (!uuid.test(actor) || !uuid.test(caseId) || !uuid.test(conversation) || !chatInput || chatInput.length > 5000 || ids.length < 1 || ids.length > 3 || !ids.every((id) => uuid.test(id))) return out({ ok: false, error: "Dados inválidos" }, 400);
 
@@ -74,7 +75,7 @@ Deno.serve(async (req) => {
       if (signed.error || !signed.data?.signedUrl) throw new Error("sign");
       attachments.push({ url: signed.data.signedUrl, mediaType: file.media_type });
     }
-    const res = await fetch(webhook, { method: "POST", headers: { "Content-Type": "application/json", "X-AMCF-Bridge-Key": secretKey }, body: JSON.stringify({ chatInput, caseId, actorId: actor, sessionId, attachments }), signal: controller.signal });
+    const res = await fetch(webhook, { method: "POST", headers: { "Content-Type": "application/json", "X-AMCF-Bridge-Key": secretKey }, body: JSON.stringify({ chatInput, caseId, actorId: actor, sessionId, attachments, caseContext }), signal: controller.signal });
     if (!res.ok) { console.error("n8n files response", res.status); }
     else {
       const data = await res.json().catch(() => null);

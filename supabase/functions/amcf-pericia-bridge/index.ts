@@ -4,6 +4,39 @@ const json=(data:unknown,status=200,origin="")=>new Response(JSON.stringify(data
  "Content-Type":"application/json; charset=utf-8","Cache-Control":"private, no-store",
  "X-Content-Type-Options":"nosniff","Vary":"Origin",...(origin?{"Access-Control-Allow-Origin":origin}:{})
 }});
+// Contexto do processo: só registros que o PRÓPRIO usuário já enxerga (consultas com o JWT dele, sujeitas ao RLS).
+// Enviado ao n8n como DADO. Só é montado quando a transferência de conteúdo clínico à IA está liberada.
+// deno-lint-ignore no-explicit-any
+async function buildCaseContext(sb:any,caseId:string):Promise<string>{
+ const cut=(v:unknown,n:number)=>String(v??"").replace(/\s+/g," ").trim().slice(0,n);
+ const rows=(r:{data?:unknown;error?:unknown})=>(r.error||!Array.isArray(r.data))?[]:(r.data as Record<string,unknown>[]);
+ const [c,mv,qs,an,ex,fd,dc]=await Promise.all([
+  sb.from("amcf_cases").select("reference,title,cnj_number,court,court_unit,claimant,defendant,claim_summary,action_type").eq("id",caseId).maybeSingle(),
+  sb.from("amcf_movements").select("occurred_on,title,detail,classification,review_state").eq("case_id",caseId).neq("review_state","ignorada").order("occurred_on",{ascending:false}).limit(40),
+  sb.from("amcf_case_questions").select("id,number,author_kind,text,status").eq("case_id",caseId).order("number").limit(40),
+  sb.from("amcf_question_answers").select("question_id,answer,status").eq("case_id",caseId).limit(80),
+  sb.from("amcf_exams").select("id,exam_on,modality,status,place").eq("case_id",caseId).order("exam_on").limit(10),
+  sb.from("amcf_exam_findings").select("exam_id,kind,title,detail").eq("case_id",caseId).limit(60),
+  sb.from("amcf_documents").select("id,title,category,document_date,text_status").eq("case_id",caseId).order("created_at").limit(30),
+ ]);
+ const docs=rows(dc);
+ const withText=docs.filter((d)=>d.text_status==="extraido"||d.text_status==="parcial").slice(0,8).map((d)=>String(d.id));
+ const pages=withText.length?rows(await sb.from("amcf_document_pages").select("document_id,page_number,content").in("document_id",withText).lte("page_number",3).order("page_number").limit(24)):[];
+ const out:string[]=[];
+ const h=(c.data||{}) as Record<string,unknown>;
+ out.push("PROCESSO: "+cut(h.reference,60)+" · "+cut(h.title,160)+(h.cnj_number?" · CNJ "+cut(h.cnj_number,40):""));
+ if(h.court||h.court_unit)out.push("Juízo: "+cut(h.court,80)+" "+cut(h.court_unit,80));
+ if(h.claimant||h.defendant)out.push("Partes: autor(es) "+cut(h.claimant,120)+" × réu(s) "+cut(h.defendant,120));
+ if(h.claim_summary)out.push("Objeto: "+cut(h.claim_summary,600));
+ const m=rows(mv);
+ if(m.length){out.push("\nMOVIMENTAÇÕES (mais recentes primeiro; classificação automática por regra, não confirmada):");for(const x of m)out.push("- [Movimentação "+x.occurred_on+"] "+cut(x.title,160)+(x.detail?" — "+cut(x.detail,300):"")+" ("+x.classification+", "+x.review_state+")");}
+ const q=rows(qs),a=rows(an);
+ if(q.length){out.push("\nQUESITOS:");for(const x of q){const r=a.find((y)=>y.question_id===x.id);out.push("- [Quesito "+x.number+"] ("+x.author_kind+", "+x.status+") "+cut(x.text,400)+(r&&r.answer?" | Resposta em "+r.status+": "+cut(r.answer,400):" | sem resposta"));}}
+ const e=rows(ex),f=rows(fd);
+ if(e.length){out.push("\nEXAME E ACHADOS (registrados pelo médico):");for(const x of e){out.push("- Exame "+x.exam_on+" ("+x.modality+", "+x.status+")"+(x.place?" em "+cut(x.place,80):""));for(const y of f.filter((z)=>z.exam_id===x.id))out.push("  - [Achado: "+cut(y.title,120)+"] "+cut(y.detail,300));}}
+ if(docs.length){out.push("\nDOCUMENTOS DO PROCESSO:");for(const d of docs){out.push("- [Documento "+cut(d.title,120)+"] categoria "+d.category+", texto: "+d.text_status);for(const p of pages.filter((z)=>z.document_id===d.id))out.push("  [Documento "+cut(d.title,80)+", p. "+p.page_number+"] "+cut(p.content,1200));}}
+ return out.join("\n").slice(0,24000);
+}
 Deno.serve(async (request)=>{
  const started=Date.now();
  const origin=request.headers.get("Origin")||"";
@@ -83,6 +116,7 @@ Deno.serve(async (request)=>{
  const {data:permitted,error:limitErr}=await supabase.rpc("amcf_pericia_chat_allow");
  if(limitErr||permitted!==true){await audit("denied",429,caseId,attachmentIds.length);return json({ok:false,error:"Limite de mensagens atingido; aguarde antes de tentar novamente"},429,allowed);}
  const sessionId=userData.user.id+":"+(caseId||"general")+":"+conversationId;
+ const caseContext=(caseId&&attachmentsEnabled)?await buildCaseContext(supabase,caseId).catch(()=>""):"";
  if(attachmentIds.length){
    // A função interna reserva, entrega, apaga os arquivos e registra a auditoria.
    const {data:token,error:tokenErr}=await svc!.rpc("amcf_ai_deliver_token");
@@ -90,7 +124,7 @@ Deno.serve(async (request)=>{
    const controller=new AbortController();
    const timer=setTimeout(()=>controller.abort(),140000);
    try{
-     const res=await fetch(url+"/functions/v1/amcf-ai-deliver",{method:"POST",headers:{"Content-Type":"application/json","Authorization":"Bearer "+token},body:JSON.stringify({actor_id:userData.user.id,case_id:caseId,conversation_id:conversationId,session_id:sessionId,chat_input:chatInput,attachment_ids:attachmentIds,save_to_case:input.saveToCase===true,file_names:Array.isArray(input.fileNames)?input.fileNames.slice(0,3).map((x)=>String(x??"").slice(0,180)):[]}),signal:controller.signal});
+     const res=await fetch(url+"/functions/v1/amcf-ai-deliver",{method:"POST",headers:{"Content-Type":"application/json","Authorization":"Bearer "+token},body:JSON.stringify({actor_id:userData.user.id,case_id:caseId,conversation_id:conversationId,session_id:sessionId,chat_input:chatInput,attachment_ids:attachmentIds,case_context:caseContext,save_to_case:input.saveToCase===true,file_names:Array.isArray(input.fileNames)?input.fileNames.slice(0,3).map((x)=>String(x??"").slice(0,180)):[]}),signal:controller.signal});
      const out=await res.json().catch(()=>null);
      if(res.ok&&out?.ok===true&&typeof out.answer==="string")return json({ok:true,answer:out.answer,...(typeof out.saved==="number"?{saved:out.saved,total:out.total}:{})},200,allowed);
      const code=res.status===404||res.status===423||res.status===503?res.status:502;
@@ -101,7 +135,7 @@ Deno.serve(async (request)=>{
  const controller=new AbortController();
  const timer=setTimeout(()=>controller.abort(),65000);
  try{
-  const res=await fetch(webhook,{method:"POST",headers:{"Content-Type":"application/json","X-AMCF-Bridge-Key":secret},body:JSON.stringify({chatInput,caseId,actorId:userData.user.id,sessionId}),signal:controller.signal});
+  const res=await fetch(webhook,{method:"POST",headers:{"Content-Type":"application/json","X-AMCF-Bridge-Key":secret},body:JSON.stringify({chatInput,caseId,actorId:userData.user.id,sessionId,caseContext}),signal:controller.signal});
   if(!res.ok){console.error("n8n bridge response",res.status);await audit("failure",502,caseId);return json({ok:false,error:"Assistente não respondeu. Confira o fluxo n8n."},502,allowed);}
   const output=await res.json().catch(()=>null);
   let answer="";
