@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type ChangeEvent, type FormEvent } from 'react';
-import { Bot, Send, ShieldCheck, AlertTriangle, LoaderCircle, MessageCircle, Paperclip, X } from 'lucide-react';
+import { Bot, Send, ShieldCheck, LoaderCircle, MessageCircle, Paperclip, X } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/features/auth/auth-context';
@@ -151,7 +151,6 @@ export default function PericiaAssistantPage({ compact = false }: { compact?: bo
           <textarea id={compact ? "amcf-assistant-compact-input" : "amcf-assistant-input"} className={compact ? "min-h-14 min-w-0 flex-1 resize-y rounded-lg border border-input bg-background px-3 py-2 text-sm" : "min-h-20 flex-1 resize-y rounded-lg border border-input bg-background px-3 py-2 text-sm"} value={input} onChange={e => setInput(e.target.value)} maxLength={5000} placeholder="Escreva sua pergunta…" disabled={!available || busy} />
           <Button disabled={!available || busy || uploading || (!input.trim() && !attachments.length)}><Send size={16} /> Enviar</Button>
         </div>
-        <p className="mt-3 flex items-start gap-2 text-[11px] leading-5 text-muted-foreground"><AlertTriangle size={14} className="mt-0.5 shrink-0" />{attachmentsEnabled ? "Os arquivos vão para uma área privada, são lidos pela IA e apagados logo após a resposta. Para anexar, escolha um processo. Confira sempre o original: a leitura automática pode errar." : "O anexo de laudos ainda não está liberado."}</p>
       </form>
     </section>
   </div>;
