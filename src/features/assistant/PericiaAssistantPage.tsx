@@ -30,7 +30,7 @@ export default function PericiaAssistantPage({ compact = false }: { compact?: bo
         setStatus(integration.data?.error || 'Aguardando a configuração do webhook protegido no n8n.');
       } else {
         setAvailable(true);
-        setStatus('Assistente conectado ao ambiente seguro.');
+        setStatus('Conexão configurada. Anexos clínicos aguardam homologação e testes do n8n.');
       }
     }).catch(() => {
       if (!cancelled) setStatus('Não foi possível verificar a integração. Atualize a página.');
@@ -63,7 +63,7 @@ export default function PericiaAssistantPage({ compact = false }: { compact?: bo
     </div>}
     <section className={compact ? 'data-panel shrink-0 p-3' : 'data-panel p-5'}>
       <div className="flex flex-wrap items-center gap-3 text-sm"><ShieldCheck size={19} className="text-primary" />
-        <span>{status}</span><span className={available ? 'status-pill status-success' : 'status-pill status-warning'}>{available ? 'Disponível' : 'Configuração pendente'}</span>
+        <span>{status}</span><span className={available ? 'status-pill status-success' : 'status-pill status-warning'}>{available ? 'Somente texto' : 'Configuração pendente'}</span>
       </div>
       <div className={compact ? "mt-3 flex flex-col gap-3" : "mt-5 flex flex-wrap items-end gap-4"}>
         <label className={compact ? "flex min-w-0 flex-col gap-2 text-xs font-semibold" : "flex min-w-60 flex-1 flex-col gap-2 text-xs font-semibold"}>Processo autorizado
