@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { BadgeCheck, Copy, FilePlus, Save } from 'lucide-react';
+import { BadgeCheck, Copy, FileDown, FilePlus, Printer, Save } from 'lucide-react';
+import { downloadWord, printAsPdf } from './exportDoc';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/features/auth/auth-context';
 import { Button } from '@/components/ui/button';
@@ -62,6 +63,14 @@ export default function ReportsTab({ caseId, header }: { caseId: string; header:
   const approve = async () => { if (!current) return; if (!window.confirm('Aprovar este documento? Depois de aprovado ele não pode ser alterado: só nova versão.')) return; const result = await runRpc(() => approveReport(current.id, note.trim()), 'Documento aprovado.'); if (result) await cache.invalidateQueries(); };
   const copyText = async () => { if (!current) return; try { await navigator.clipboard.writeText(body[current.id] ?? current.body); } catch { /* sem permissão de área de transferência */ } };
   const text = current ? body[current.id] ?? current.body : '';
+  const exportFile = (kind: 'word' | 'pdf') => {
+    if (!current) return;
+    const open = (text.match(/\[a preencher pelo perito\]/gi) || []).length;
+    const approved = current.status === 'aprovado';
+    if (open > 0 && !window.confirm(`Há ${open} campo(s) “[a preencher pelo perito]” em aberto. Exportar mesmo assim?`)) return;
+    const footer = approved ? `Versão ${current.version} aprovada pelo médico responsável.` : `RASCUNHO — versão ${current.version}, não aprovado. Revisão e assinatura do médico responsável pendentes.`;
+    (kind === 'word' ? downloadWord : printAsPdf)(current.title, text, footer);
+  };
   const pending = (text.match(/\[a preencher pelo perito\]/gi) || []).length;
   return <div className="space-y-6">
     <Section title="Laudos, petições e esclarecimentos" description="O texto é montado com dados reais do processo; o que faltar fica marcado “[a preencher pelo perito]”. Nenhuma conclusão é gerada automaticamente e a aprovação é exclusiva do médico.">
@@ -79,6 +88,8 @@ export default function ReportsTab({ caseId, header }: { caseId: string; header:
           {!locked && <Button size="sm" disabled={busy} onClick={save}><Save />Salvar rascunho</Button>}
           {!locked && current.status === 'rascunho' && <Button size="sm" variant="outline" disabled={busy} onClick={toReview}>Enviar para revisão médica</Button>}
           <Button size="sm" variant="outline" type="button" onClick={() => void copyText()}><Copy />Copiar texto</Button>
+          <Button size="sm" variant="outline" type="button" onClick={() => exportFile('word')}><FileDown />Baixar Word</Button>
+          <Button size="sm" variant="outline" type="button" onClick={() => exportFile('pdf')}><Printer />Salvar PDF</Button>
         </div>
         {!locked && canApprove && <div className="border-t pt-4">
           {!!lines.blocking.length && <div className="notice mb-3"><div><strong>Aprovação bloqueada pelo servidor:</strong><ul className="mt-1 list-disc pl-4">{lines.blocking.map(line => <li key={line}>{line}</li>)}</ul></div></div>}
