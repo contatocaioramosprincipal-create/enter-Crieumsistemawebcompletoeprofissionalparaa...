@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { NavLink, Outlet, useLocation } from 'react-router-dom';
-import { LayoutDashboard, UsersRound, GitBranch, BriefcaseBusiness, ListTodo, CalendarDays, Files, FileText, Wallet, ChartNoAxesCombined, Settings2, Menu, X, LogOut, ShieldCheck, ChevronDown } from 'lucide-react';
+import { LayoutDashboard, UsersRound, GitBranch, BriefcaseBusiness, ListTodo, CalendarDays, Files, FileText, Wallet, ChartNoAxesCombined, Settings2, Menu, X, LogOut, ShieldCheck, ChevronDown, Bot } from 'lucide-react';
 import { useAuth } from '@/features/auth/auth-context';
 import AccessPage from '@/features/auth/AccessPage';
 import { Button } from '@/components/ui/button';
@@ -12,6 +12,7 @@ const navigation = [
   { to: '/relacionamento', label: 'Relacionamento', icon: UsersRound },
   { to: '/oportunidades', label: 'Oportunidades', icon: GitBranch },
   { to: '/casos', label: 'Casos', icon: BriefcaseBusiness },
+  { to: '/assistente-pericia', label: 'Assistente de Perícia', icon: Bot },
   { to: '/tarefas', label: 'Tarefas e prazos', icon: ListTodo },
   { to: '/agenda', label: 'Agenda', icon: CalendarDays },
   { to: '/documentos', label: 'Documentos', icon: Files },
