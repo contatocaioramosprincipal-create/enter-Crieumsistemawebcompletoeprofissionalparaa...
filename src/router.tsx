@@ -10,6 +10,7 @@ const Agenda = lazy(() => import('@/pages/Agenda'));
 const DocumentsPage = lazy(() => import('@/features/documents/DocumentsPage'));
 const FinancePage = lazy(() => import('@/features/finance/FinancePage'));
 const ReportsPage = lazy(() => import('@/pages/ReportsPage'));
+const PericiaAssistantPage = lazy(() => import('@/features/assistant/PericiaAssistantPage'));
 const pending = (title: string, dependencies: string[]) => page(<PendingModule title={title} dependencies={dependencies} />);
 const page = (children: ReactNode) => <Suspense fallback={<div className="data-panel"><QueryState loading /></div>}>{children}</Suspense>;
 export const routers = [{ path: '/', name: 'workspace', element: <AppShell />, children: [
@@ -18,6 +19,7 @@ export const routers = [{ path: '/', name: 'workspace', element: <AppShell />, c
   { path: 'oportunidades', element: page(<RegistryPage key="opportunities" resource="opportunities" />) },
   { path: 'casos', element: page(<RegistryPage key="cases" resource="cases" />) },
   { path: 'casos/:id', element: page(<CaseDetail />) },
+  { path: 'assistente-pericia', element: page(<PericiaAssistantPage />) },
   { path: 'tarefas', element: page(<RegistryPage key="tasks" resource="tasks" />) },
   { path: 'configuracoes', element: page(<SettingsPage />) },
   { path: 'agenda', element: page(<Agenda />) },

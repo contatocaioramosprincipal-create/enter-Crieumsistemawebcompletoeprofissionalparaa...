@@ -30,12 +30,14 @@ export default function AccessPage() {
         if (password.length < 12) { setError('Use uma senha com pelo menos 12 caracteres, escolhida por você.'); return; }
         const result = await supabase.auth.signUp({ email: email.trim(), password, options: { data: { name: name.trim(), amcf_needs_password: false }, emailRedirectTo: `${location.origin}/` } });
         if (result.error) throw result.error;
-        if (result.data.user) {
-          const registered = await supabase.from('amcf_members').insert({ id: result.data.user.id, name: name.trim(), email: email.trim().toLowerCase(), role: 'assistant', status: 'pending' }).select('id');
-          if (registered.error && registered.error.code !== '23505') throw new Error('Conta criada, mas o pré-cadastro não foi registrado. Avise a administração.');
-        }
+        // O trigger amcf_register_user_on_signup registra a pessoa como assistant/pending.
+        // A inserção direta com sessão ausente (quando confirmação de e-mail está ativa)
+        // falhava indevidamente e deixava o usuário achando que a conta não tinha sido criada.
         setPassword('');
-        if (!result.data.session) { setMessage('Conta criada. Entre com o e-mail e a senha informados.'); setMode('login'); }
+        setMessage(result.data.session
+          ? 'Conta criada. Aguarde a ativação do administrador e configure o segundo fator no primeiro acesso.'
+          : 'Solicitação recebida. Verifique seu e-mail para confirmar a conta. O administrador ainda precisará liberar seu acesso.');
+        setMode('login');
       } else if (mode === 'recover') {
         const result = await supabase.auth.resetPasswordForEmail(email.trim(), { redirectTo: `${location.origin}/` });
         if (result.error) throw result.error;
