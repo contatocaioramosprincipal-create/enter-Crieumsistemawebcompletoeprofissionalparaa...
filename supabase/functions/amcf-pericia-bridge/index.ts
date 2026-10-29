@@ -38,7 +38,7 @@ async function buildCaseContext(sb:any,caseId:string):Promise<string>{
  const e=rows(ex),f=rows(fd);
  if(e.length){out.push("\nEXAME E ACHADOS (registrados pelo médico):");for(const x of e){out.push("- Exame "+x.exam_on+" ("+x.modality+", "+x.status+")"+(x.place?" em "+cut(x.place,80):""));for(const y of f.filter((z)=>z.exam_id===x.id))out.push("  - [Achado: "+cut(y.title,120)+"] "+cut(y.detail,300));}}
  if(docs.length){out.push("\nDOCUMENTOS DO PROCESSO:");for(const d of docs){out.push("- [Documento "+cut(d.title,120)+"] categoria "+d.category+", texto: "+d.text_status);for(const p of pages.filter((z)=>z.document_id===d.id))out.push("  [Documento "+cut(d.title,80)+", p. "+p.page_number+"] "+cut(p.content,1200));}}
- return out.join("\n").slice(0,24000);
+ return out.join("\n").slice(0,14000);
 }
 Deno.serve(async (request)=>{
  const started=Date.now();

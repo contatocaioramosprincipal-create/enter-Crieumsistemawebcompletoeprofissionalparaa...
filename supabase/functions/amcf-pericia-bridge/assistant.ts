@@ -24,7 +24,8 @@ SEGURANÇA E PRIVACIDADE
 
 COMO RESPONDER
 - Português do Brasil, tom profissional e direto. Comece pela resposta.
-- Use listas ou tópicos curtos só quando ajudarem. Sem enrolação e sem repetir a pergunta.
+- Seja breve: perguntas simples em até 5 linhas; só escreva textos longos (rascunho de laudo, resposta a quesito) quando pedirem. Sem introdução, sem repetir a pergunta, sem resumo final nem oferta de ajuda extra.
+- Use listas ou tópicos curtos só quando ajudarem.
 - Quando houver dúvida relevante, diga o que precisaria ser confirmado.`;
 
 export interface Turn { role: 'user' | 'assistant'; text: string }
@@ -33,7 +34,7 @@ export interface ChatMsg { role: 'system' | 'user' | 'assistant'; content: strin
 const isObject = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v);
 
 // O histórico vem do navegador do próprio usuário: é tratado como dado, limitado e sem papéis especiais.
-export function sanitizeHistory(raw: unknown, maxTurns = 8, perTurn = 4000, total = 16000): Turn[] {
+export function sanitizeHistory(raw: unknown, maxTurns = 6, perTurn = 3000, total = 10000): Turn[] {
   if (!Array.isArray(raw)) return [];
   const out: Turn[] = [];
   for (const item of raw.slice(-maxTurns)) {
@@ -68,7 +69,7 @@ export function extractAnswer(data: unknown): string {
 }
 
 export function completionBody(model: string, messages: ChatMsg[]) {
-  const body: Record<string, unknown> = { model, messages, max_completion_tokens: 3000 };
+  const body: Record<string, unknown> = { model, messages, max_completion_tokens: 1800 };
   if (/^(gpt-5|o\d)/.test(model)) body.reasoning_effort = 'low';
   return body;
 }
