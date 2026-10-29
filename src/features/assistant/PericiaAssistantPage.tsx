@@ -47,7 +47,7 @@ export default function PericiaAssistantPage({ compact = false }: { compact?: bo
       if (!authorizedCases.error) setCases((authorizedCases.data || []) as CaseOption[]);
       if (integration.error || !integration.data?.ready) {
         setAvailable(false);
-        setStatus(integration.data?.error || 'Aguardando a configuração do webhook protegido no n8n.');
+        setStatus(integration.data?.error || 'O assistente ainda não foi ligado no servidor.');
       } else {
         setAvailable(true);
         setAttachmentsEnabled(integration.data?.attachments_enabled === true);
@@ -69,10 +69,11 @@ export default function PericiaAssistantPage({ compact = false }: { compact?: bo
     setAttachments([]);
     setBusy(true);
     try {
-      const body: Record<string, unknown> = { chatInput, caseId, conversationId };
+      const history = messages.filter(m => !m.text.startsWith('Não foi possível responder:')).slice(-8).map(m => ({ role: m.role, text: m.text.slice(0, 4000) }));
+      const body: Record<string, unknown> = { chatInput, caseId, conversationId, history };
       if (sending.length) { body.attachmentIds = sending.map(a => a.id); body.fileNames = sending.map(a => a.name); body.saveToCase = saveToCase; }
       const { data, error } = await supabase.functions.invoke('amcf-pericia-bridge', { body });
-      if (error || !data?.ok || !data?.answer) throw new Error(data?.error || 'A IA não respondeu. Confira se o fluxo está publicado.');
+      if (error || !data?.ok || !data?.answer) throw new Error(data?.error || 'A IA não respondeu. Tente novamente em instantes.');
       setMessages(current => [...current, { id: crypto.randomUUID(), role: 'assistant', text: String(data.answer) + (sending.length && saveToCase ? (data.saved === sending.length ? '\n\n✅ Arquivo(s) salvo(s) em Documentos do processo.' : '\n\n⚠️ A leitura foi feita, mas não consegui salvar todos os arquivos no processo (' + String(data.saved ?? 0) + ' de ' + sending.length + '). Envie-os pela aba Documentos.') : sending.length ? '\n\nArquivo(s) apagado(s) após a leitura.' : '') }]);
     } catch (failure) {
       // O servidor apaga os arquivos ao processar; se falhou antes disso, descarta o que sobrou.

@@ -1,11 +1,14 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.4";
+import { buildMessages, completionBody, extractAnswer, sanitizeHistory } from "./assistant.ts";
+// Análise de anexos ainda depende do antigo fluxo n8n (função amcf-ai-deliver) e fica desligada até ser migrada e homologada.
+const ATTACHMENTS_SUPPORTED=false;
 const allowOrigins = new Set(["https://sistema.dradilsoncouto.com.br","https://amcf-dr-adilson-original.pages.dev"]);
 const json=(data:unknown,status=200,origin="")=>new Response(JSON.stringify(data),{status,headers:{
  "Content-Type":"application/json; charset=utf-8","Cache-Control":"private, no-store",
  "X-Content-Type-Options":"nosniff","Vary":"Origin",...(origin?{"Access-Control-Allow-Origin":origin}:{})
 }});
 // Contexto do processo: só registros que o PRÓPRIO usuário já enxerga (consultas com o JWT dele, sujeitas ao RLS).
-// Enviado ao n8n como DADO. Só é montado quando a transferência de conteúdo clínico à IA está liberada.
+// Enviado ao modelo como DADO (nunca como instrução). Só é montado quando a transferência de conteúdo clínico à IA está liberada.
 // deno-lint-ignore no-explicit-any
 async function buildCaseContext(sb:any,caseId:string):Promise<string>{
  const cut=(v:unknown,n:number)=>String(v??"").replace(/\s+/g," ").trim().slice(0,n);
@@ -44,7 +47,7 @@ Deno.serve(async (request)=>{
  if(origin&&!allowed)return json({ok:false,error:"Origem não permitida"},403);
  if(request.method==="OPTIONS")return new Response(null,{status:204,headers:{"Access-Control-Allow-Origin":allowed,"Access-Control-Allow-Methods":"POST, OPTIONS","Access-Control-Allow-Headers":"authorization, apikey, content-type, x-client-info","Access-Control-Max-Age":"3600","Vary":"Origin"}});
  if(request.method!=="POST")return json({ok:false,error:"Use POST"},405,allowed);
- if(Number(request.headers.get("Content-Length")||0)>16000)return json({ok:false,error:"Mensagem muito grande"},413,allowed);
+ if(Number(request.headers.get("Content-Length")||0)>64000)return json({ok:false,error:"Mensagem muito grande"},413,allowed);
  const match=/^Bearer (\S+)$/.exec(request.headers.get("Authorization")||"");
  if(!match)return json({ok:false,error:"Sessão obrigatória"},401,allowed);
  const url=Deno.env.get("SUPABASE_URL"),anon=Deno.env.get("SUPABASE_ANON_KEY");
@@ -59,7 +62,7 @@ Deno.serve(async (request)=>{
  const {data:member,error:memberErr}=await supabase.from("amcf_members").select("id,role,status").eq("id",userData.user.id).maybeSingle();
  if(memberErr||!member||member.status!=="active"||!["admin","doctor","assistant"].includes(member.role))return json({ok:false,error:"Usuário sem acesso ativo"},403,allowed);
  // Prefer encrypted Supabase Vault configuration, readable only by service_role.
- // Remains disabled until n8n credential and production workflow are verified.
+ // O interruptor "amcf_pericia_webhook_enabled" no Vault continua valendo como chave geral liga/desliga.
  const serviceRole=Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")||"";
  const svc=serviceRole?createClient(url,serviceRole,{auth:{persistSession:false,autoRefreshToken:false}}):null;
  const audit=async (outcome:"success"|"failure"|"denied",statusCode:number,caseId?:string,attachmentCount=0)=>{
@@ -73,14 +76,9 @@ Deno.serve(async (request)=>{
    const result=await svc.rpc("amcf_pericia_bridge_config");
    if(!result.error && result.data && typeof result.data==="object")config=result.data;
  }
- const webhook=String(config?.url || Deno.env.get("AMCF_N8N_PERICIA_WEBHOOK_URL") || "");
- const secret=String(config?.header_key || Deno.env.get("AMCF_N8N_PERICIA_WEBHOOK_HEADER_KEY") || "");
- const enabled=config===null ? Boolean(Deno.env.get("AMCF_N8N_PERICIA_WEBHOOK_URL")) : config.enabled===true;
- let ready=false;
- try{
-   const dest=new URL(webhook);
-   ready=enabled&&dest.protocol==="https:"&&dest.hostname==="caioramos.app.n8n.cloud"&&dest.pathname.startsWith("/webhook/")&&secret.length>=32;
- }catch{}
+ const openaiKey=Deno.env.get("OPENAI_API_KEY")||"";
+ const enabled=config===null ? false : config.enabled===true;
+ const ready=enabled&&openaiKey.length>20;
  let attachmentsEnabled=false;
  if(svc){
    const f=await svc.rpc("amcf_ai_security_flags");
@@ -89,7 +87,7 @@ Deno.serve(async (request)=>{
  let input:Record<string,unknown>;
  try{input=await request.json();}catch{return json({ok:false,error:"JSON inválido"},400,allowed);}
  if(!input||typeof input!=="object"||Array.isArray(input))return json({ok:false,error:"Corpo inválido"},400,allowed);
- if(input.action==="status")return json({ok:true,ready,attachments_enabled:attachmentsEnabled&&ready},200,allowed);
+ if(input.action==="status")return json({ok:true,ready,attachments_enabled:ATTACHMENTS_SUPPORTED&&attachmentsEnabled&&ready},200,allowed);
  if(!ready)return json({ok:false,error:"Integração do assistente ainda não configurada no servidor"},503,allowed);
  const chatInput=typeof input.chatInput==="string"?input.chatInput.trim():"";
  const caseId=typeof input.caseId==="string"?input.caseId.trim():"";
@@ -107,7 +105,7 @@ Deno.serve(async (request)=>{
    if(!Array.isArray(raw))return json({ok:false,error:"Anexos inválidos"},400,allowed);
    attachmentIds=[...new Set(raw.map(String))];
    if(attachmentIds.length<1||attachmentIds.length>3||!attachmentIds.every((x)=>uuid.test(x))||!caseId)return json({ok:false,error:"Anexos inválidos ou processo ausente"},400,allowed);
-   if(!attachmentsEnabled){await audit("denied",423,caseId,attachmentIds.length);return json({ok:false,error:"Análise de anexos ainda não está liberada"},423,allowed);}
+   if(!ATTACHMENTS_SUPPORTED||!attachmentsEnabled){await audit("denied",423,caseId,attachmentIds.length);return json({ok:false,error:"Análise de anexos ainda não está liberada"},423,allowed);}
  }
  if(caseId){
   const {data:authorized,error:caseErr}=await supabase.from("amcf_cases").select("id").eq("id",caseId).maybeSingle();
@@ -133,16 +131,16 @@ Deno.serve(async (request)=>{
    finally{clearTimeout(timer);}
  }
  const controller=new AbortController();
- const timer=setTimeout(()=>controller.abort(),65000);
+ const timer=setTimeout(()=>controller.abort(),90000);
  try{
-  const res=await fetch(webhook,{method:"POST",headers:{"Content-Type":"application/json","X-AMCF-Bridge-Key":secret},body:JSON.stringify({chatInput,caseId,actorId:userData.user.id,sessionId,caseContext}),signal:controller.signal});
-  if(!res.ok){console.error("n8n bridge response",res.status);await audit("failure",502,caseId);return json({ok:false,error:"Assistente não respondeu. Confira o fluxo n8n."},502,allowed);}
-  const output=await res.json().catch(()=>null);
-  let answer="";
-  if(typeof output==="string")answer=output;
-  if(output&&typeof output==="object")answer=String(output.output||output.answer||output.text||"");
-  if(!answer.trim()){await audit("failure",502,caseId);return json({ok:false,error:"O assistente retornou uma resposta vazia"},502,allowed);}
+  const model=Deno.env.get("AMCF_PERICIA_MODEL")||"gpt-5-mini";
+  const history=sanitizeHistory(input.history);
+  const messages=buildMessages(history,caseContext,chatInput);
+  const res=await fetch("https://api.openai.com/v1/chat/completions",{method:"POST",headers:{"Authorization":"Bearer "+openaiKey,"Content-Type":"application/json"},body:JSON.stringify(completionBody(model,messages)),signal:controller.signal});
+  if(!res.ok){console.error("AMCF model response",res.status);await audit("failure",502,caseId);return json({ok:false,error:"O assistente não respondeu. Tente novamente em instantes."},502,allowed);}
+  const answer=extractAnswer(await res.json().catch(()=>null));
+  if(!answer){await audit("failure",502,caseId);return json({ok:false,error:"O assistente retornou uma resposta vazia"},502,allowed);}
   await audit("success",200,caseId);
-  return json({ok:true,answer:answer.slice(0,30000)},200,allowed);
+  return json({ok:true,answer},200,allowed);
  }catch(e){console.error("AMCF pericia bridge failure",e instanceof Error?e.name:"unknown");await audit("failure",503,caseId);return json({ok:false,error:"Assistente indisponível. Tente novamente."},503,allowed);}finally{clearTimeout(timer);}
 });

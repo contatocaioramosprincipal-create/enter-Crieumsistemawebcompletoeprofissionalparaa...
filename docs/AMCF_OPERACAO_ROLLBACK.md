@@ -52,3 +52,12 @@ Flags do Vault: `amcf_ai_uploads_enabled` e `amcf_ai_transfer_enabled` estão `t
 - Backup criptografado e teste de restauração (adiado pelo responsável; ver runbook).
 - Proteção contra senhas vazadas do Supabase Auth exige plano Pro.
 - Corte da secretária no WhatsApp (planejado para 15/10/2026): só com plano de corte e aprovação humana.
+
+## Assistente de Perícia sem n8n (2026-10-29)
+
+- A função `amcf-pericia-bridge` (v7) passou a chamar o modelo diretamente (OpenAI Chat Completions). O n8n deixou de ser necessário para o chat.
+- Continua exigindo: sessão do usuário, MFA (aal2), membro ativo, RLS por `caseId`, limite de mensagens, auditoria sem conteúdo e o interruptor do Vault `amcf_pericia_webhook_enabled`.
+- Segredos necessários nas Edge Functions: `OPENAI_API_KEY` (obrigatório) e `AMCF_PERICIA_MODEL` (opcional, padrão `gpt-5-mini`). Sem a chave, o status retorna `ready:false` e o chat fica indisponível (503), sem erro para o restante do CRM.
+- Anexos: continuam bloqueados (`ATTACHMENTS_SUPPORTED=false`) até migrar `amcf-ai-deliver` e homologar LGPD.
+- Rollback: reimplantar a versão v6 da função (fluxo n8n) ou desligar o interruptor do Vault. Desligar a chave `OPENAI_API_KEY` também desativa o chat.
+- `amcf-tmp-selftest` foi substituída por um stub (410); pode ser excluída no painel.
