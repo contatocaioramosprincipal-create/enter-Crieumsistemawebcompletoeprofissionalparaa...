@@ -98,6 +98,7 @@ Deno.serve(async (req) => {
         if (dl.error || !dl.data || dl.data.size < 1) continue;
         const bytes = new Uint8Array(await dl.data.arrayBuffer());
         const ext = file.media_type === "application/pdf" ? ".pdf" : file.media_type === "image/png" ? ".png" : ".jpg";
+        // eslint-disable-next-line no-control-regex
         let original = (nameById.get(file.id) || "").replace(/[\u0000-\u001f\\/]/g, "_").trim().slice(0, 170);
         if (!original) original = "laudo-anexado" + ext;
         const safe = original.replace(/[^a-zA-Z0-9._-]/g, "_").slice(-120) || "laudo" + ext;

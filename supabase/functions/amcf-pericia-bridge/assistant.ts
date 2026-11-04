@@ -40,6 +40,7 @@ export function sanitizeHistory(raw: unknown, maxTurns = 6, perTurn = 3000, tota
   for (const item of raw.slice(-maxTurns)) {
     if (!isObject(item)) continue;
     const role = item.role === 'assistant' ? 'assistant' : item.role === 'user' ? 'user' : null;
+    // eslint-disable-next-line no-control-regex
     const text = typeof item.text === 'string' ? item.text.replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g, '').trim().slice(0, perTurn) : '';
     if (role && text) out.push({ role, text });
   }
@@ -65,6 +66,7 @@ export function extractAnswer(data: unknown): string {
   const first = data.choices[0];
   if (!isObject(first) || !isObject(first.message)) return '';
   const content = first.message.content;
+  // eslint-disable-next-line no-control-regex
   return typeof content === 'string' ? content.replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g, '').trim().slice(0, 30000) : '';
 }
 

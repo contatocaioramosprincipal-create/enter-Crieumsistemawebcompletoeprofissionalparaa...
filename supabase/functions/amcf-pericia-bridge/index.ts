@@ -10,6 +10,7 @@ const json=(data:unknown,status=200,origin="")=>new Response(JSON.stringify(data
 // Contexto do processo: só registros que o PRÓPRIO usuário já enxerga (consultas com o JWT dele, sujeitas ao RLS).
 // Enviado ao modelo como DADO (nunca como instrução). Só é montado quando a transferência de conteúdo clínico à IA está liberada.
 // deno-lint-ignore no-explicit-any
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function buildCaseContext(sb:any,caseId:string):Promise<string>{
  const cut=(v:unknown,n:number)=>String(v??"").replace(/\s+/g," ").trim().slice(0,n);
  const rows=(r:{data?:unknown;error?:unknown})=>(r.error||!Array.isArray(r.data))?[]:(r.data as Record<string,unknown>[]);

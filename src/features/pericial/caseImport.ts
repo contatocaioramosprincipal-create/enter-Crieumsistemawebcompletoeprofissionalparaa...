@@ -31,6 +31,7 @@ export function formatCnj(value: string): string {
 }
 
 export function parseCaseImport(text: string, max = 200): ParsedImport {
+  // eslint-disable-next-line no-irregular-whitespace
   const lines = text.replace(/^﻿/, '').split(/\r?\n/).filter(line => line.trim());
   if (lines.length < 2) return { rows: [], errors: ['Cole o cabeçalho e ao menos uma linha. Colunas: referencia; titulo; contato; servico; cnj (opcional); autor; reu; vara.'] };
   const delimiter = [';', '\t', ','].reduce((best, candidate) => lines[0].split(candidate).length > lines[0].split(best).length ? candidate : best, ';');

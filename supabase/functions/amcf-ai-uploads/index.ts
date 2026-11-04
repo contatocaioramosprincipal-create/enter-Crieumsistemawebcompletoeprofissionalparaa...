@@ -25,6 +25,7 @@ Deno.serve(async (req)=>{
  const {data:identity,error:userError}=await caller.auth.getUser(matched[1]);
  if(userError||!identity?.user)return reply({ok:false,error:"Sessão inválida"},401,origin);
  let aal="";
+// eslint-disable-next-line no-empty
  try{const p=matched[1].split(".")[1];aal=JSON.parse(atob(p.replace(/-/g,"+").replace(/_/g,"/"))).aal||"";}catch{}
  if(aal!=="aal2")return reply({ok:false,error:"MFA exigido"},403,origin);
  const uid=identity.user.id;
