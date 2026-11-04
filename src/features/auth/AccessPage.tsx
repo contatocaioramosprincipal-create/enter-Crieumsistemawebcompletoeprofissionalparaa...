@@ -30,12 +30,14 @@ export default function AccessPage() {
         if (password.length < 12) { setError('Use uma senha com pelo menos 12 caracteres, escolhida por você.'); return; }
         const result = await supabase.auth.signUp({ email: email.trim(), password, options: { data: { name: name.trim(), amcf_needs_password: false }, emailRedirectTo: `${location.origin}/` } });
         if (result.error) throw result.error;
-        if (result.data.user) {
-          const registered = await supabase.from('amcf_members').insert({ id: result.data.user.id, name: name.trim(), email: email.trim().toLowerCase(), role: 'assistant', status: 'pending' }).select('id');
-          if (registered.error && registered.error.code !== '23505') throw new Error('Conta criada, mas o pré-cadastro não foi registrado. Avise a administração.');
-        }
+        // O trigger amcf_register_user_on_signup registra a pessoa como assistant/pending.
+        // A inserção direta com sessão ausente (quando confirmação de e-mail está ativa)
+        // falhava indevidamente e deixava o usuário achando que a conta não tinha sido criada.
         setPassword('');
-        if (!result.data.session) { setMessage('Conta criada. Entre com o e-mail e a senha informados.'); setMode('login'); }
+        setMessage(result.data.session
+          ? 'Conta criada. Aguarde a ativação do administrador e configure o segundo fator no primeiro acesso.'
+          : 'Solicitação recebida. Verifique seu e-mail para confirmar a conta. O administrador ainda precisará liberar seu acesso.');
+        setMode('login');
       } else if (mode === 'recover') {
         const result = await supabase.auth.resetPasswordForEmail(email.trim(), { redirectTo: `${location.origin}/` });
         if (result.error) throw result.error;
@@ -51,7 +53,7 @@ export default function AccessPage() {
   const mfa = session && access?.member && !access.mfa && !recovery && access.member.status !== 'revoked';
   const waiting = session && !recovery && !mfa;
   return <main className="access-page">
-    <aside className="access-brand"><div className="flex items-center gap-4"><div className="brand-monogram">AM</div><div><p className="text-sm font-semibold tracking-wide">ADILSON MACHADO</p><p className="mt-1 text-[11px] tracking-[.24em] text-sidebar-foreground/65">COUTO FILHO</p></div></div>
+    <aside className="access-brand"><div className="flex items-center gap-4"><div className="flex h-[70px] w-[240px] items-center justify-center rounded-xl border border-gold/40 bg-[#fffdf8] px-3"><img src="/brand-adilson-couto.svg" alt="Logo AC — Adilson Couto" width="1100" height="279" className="block h-auto w-full" /></div></div>
       <div className="access-brand-copy"><div className="mb-7 h-px w-12 bg-gold" /><p className="text-xs font-medium uppercase tracking-[.22em] text-gold-light">Gestão médico-pericial</p><h2 className="mt-6 text-4xl font-medium leading-[1.2] tracking-tight lg:text-5xl">Rigor técnico.<br />Organização em<br /><span className="text-sidebar-foreground/60">cada etapa.</span></h2><p className="mt-7 max-w-sm text-sm leading-7 text-sidebar-foreground/65">Um ambiente de trabalho reservado à equipe. Relacionamentos, casos e responsabilidades em um só lugar.</p><div className="mt-12 flex items-center gap-3 text-xs text-sidebar-foreground/70"><Scale className="h-5 w-5 text-gold-light" /><span>Medicina, responsabilidade e precisão.</span></div></div>
       <p className="text-xs text-sidebar-foreground/45">Dr. Adilson Machado Couto Filho</p>
     </aside>

@@ -9,6 +9,7 @@
   "background_color": "#0f1e2e",
   "theme_color": "#142438",
   "icons": [
+    { "src": "/brand-ac-mark.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" },
     { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
     { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
     { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" },

@@ -27,7 +27,7 @@ export async function extractText(file: File, onProgress?: (done: number, total:
   const [pdfjs, worker] = await Promise.all([import('pdfjs-dist'), import('pdfjs-dist/build/pdf.worker.min.mjs?url')]);
   pdfjs.GlobalWorkerOptions.workerSrc = worker.default;
   const data = await file.arrayBuffer();
-  const document = await pdfjs.getDocument({ data, isEvalSupported: false }).promise;
+  const document = await pdfjs.getDocument({ data, isEvalSupported: false } as Parameters<typeof pdfjs.getDocument>[0]).promise;
   const pages: ExtractedPage[] = [];
   let emptyPages = 0;
   for (let index = 1; index <= document.numPages; index += 1) {
@@ -42,7 +42,7 @@ export async function extractText(file: File, onProgress?: (done: number, total:
     pages.push({ page_number: index, content: text.slice(0, 400000), char_count: chars, extraction_status: chars < MIN_PAGE_CHARS ? 'sem_texto' : 'extraida' });
     onProgress?.(index, document.numPages);
   }
-  await document.destroy();
+  await (document as unknown as { destroy?: () => Promise<void> }).destroy?.();
   const texted = pages.filter(page => page.extraction_status === 'extraida').length;
   return { pages, total_pages: pages.length, needs_ocr: texted === 0 && pages.length > 0, engine: 'extração local no navegador (pdf.js)', empty_pages: emptyPages };
 }

@@ -1,0 +1,14 @@
+-- Migração original: migration_20260930_013414000
+begin;
+create table public.amcf_document_files (
+ document_id uuid primary key references public.amcf_documents(id) on delete cascade,
+ content text not null check(char_length(content) between 4 and 5600000),
+ created_at timestamptz not null default now()
+);
+alter table public.amcf_document_files enable row level security;
+create policy document_files_read on public.amcf_document_files for select to authenticated using (exists(select 1 from public.amcf_documents d where d.id = document_id and public.amcf_can_case(d.case_id)));
+create policy document_files_insert on public.amcf_document_files for insert to authenticated with check (exists(select 1 from public.amcf_documents d where d.id = document_id and public.amcf_can_case(d.case_id) and d.uploaded_by = auth.uid()));
+create policy document_files_delete on public.amcf_document_files for delete to authenticated using (exists(select 1 from public.amcf_documents d where d.id = document_id and public.amcf_can_case(d.case_id) and (public.amcf_is_manager() or d.uploaded_by = auth.uid())));
+revoke all on public.amcf_document_files from anon;
+grant select, insert, delete on public.amcf_document_files to authenticated;
+commit;
