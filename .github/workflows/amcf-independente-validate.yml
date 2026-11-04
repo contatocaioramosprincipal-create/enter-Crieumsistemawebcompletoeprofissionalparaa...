@@ -2,7 +2,7 @@ name: Validar AMCF sem Enter
 
 on:
   push:
-    branches: [amcf-react-supabase-independente]
+    branches: [amcf-react-supabase-independente, amcf-fase1-processo]
   pull_request:
     branches: [enter-main]
 
