@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { Link } from 'react-router-dom';
 import { Search, Upload, Download, Trash2, ChevronLeft, ChevronRight, FileText } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase, SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY } from '@/integrations/supabase/client';
@@ -30,7 +31,7 @@ export default function DocumentsPage() {
   const [category, setCategory] = useState(''); const [page, setPage] = useState(0);
   const [open, setOpen] = useState(false); const [busy, setBusy] = useState(false); const [error, setError] = useState('');
   const [progress, setProgress] = useState(0); const [caseId, setCaseId] = useState(''); const [title, setTitle] = useState('');
-  const [docCategory, setDocCategory] = useState('outro'); const [docDate, setDocDate] = useState(todayISO()); const [file, setFile] = useState<File | null>(null);
+  const [docCategory, setDocCategory] = useState('outro'); const [docDate, setDocDate] = useState(todayISO()); const [files, setFiles] = useState<File[]>([]);
   const documents = useQuery({ queryKey: ['documents', term, category, page], queryFn: async () => {
     let query = supabase.from('amcf_documents').select('id,title,category,storage_path,document_date,file_name,mime_type,size_bytes,uploaded_by,created_at, linked_case:amcf_cases(reference,title)', { count: 'exact' }).order('created_at', { ascending: false }).range(page * 20, page * 20 + 19);
     if (term) query = query.ilike('title', `%${term.replace(/[%_\\]/g, '')}%`);
@@ -40,32 +41,43 @@ export default function DocumentsPage() {
   } });
   const directory = useQuery({ queryKey: ['directory'], queryFn: async () => { const result = await supabase.rpc('amcf_directory'); if (result.error) throw result.error; return result.data; } });
   const limits = useQuery({ queryKey: ['document-limits'], staleTime: 10 * 60 * 1000, queryFn: async () => { const result = await supabase.functions.invoke('amcf-files', { body: { action: 'limits' } }); if (result.error || !result.data?.max_bytes) return FALLBACK_LIMIT; return Number(result.data.max_bytes); } });
+  const casesTotal = useQuery({ queryKey: ['cases-total'], queryFn: async () => { const result = await supabase.from('amcf_cases').select('id', { count: 'exact', head: true }); if (result.error) throw result.error; return result.count ?? 0; } });
   const maxBytes = limits.data || FALLBACK_LIMIT;
   const call = async (body: Record<string, unknown>) => { const result = await supabase.functions.invoke('amcf-files', { body }); if (result.error) { let detail = ''; try { detail = (await (result.error as { context?: Response }).context?.json())?.error || ''; } catch { /* sem corpo */ } throw new Error(detail || 'Não foi possível concluir a operação de arquivos.'); } return result.data as Record<string, string>; };
+  const sendOne = async (file: File, docTitle: string, onProgress: (fraction: number) => void) => {
+    if (file.size <= 0) throw new Error('O arquivo está vazio.');
+    if (file.size > maxBytes) throw new Error(`O arquivo tem ${(file.size / 1048576).toFixed(1)} MB e o limite efetivo atual é ${mb(maxBytes)} por arquivo.`);
+    if (!ALLOWED.includes(file.type)) throw new Error('Formato não permitido. Envie PDF, PNG ou JPEG.');
+    const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_').slice(-120) || 'documento';
+    const path = `${caseId}/${crypto.randomUUID()}-${safeName}`;
+    try {
+      await uploadResumable({ endpoint: `${SUPABASE_URL}/storage/v1/upload/resumable`, apikey: SUPABASE_PUBLISHABLE_KEY, getToken: async () => { const session = await supabase.auth.getSession(); const token = session.data.session?.access_token; if (!token) throw new Error('Sessão expirada. Entre novamente.'); return token; }, bucket: BUCKET, objectName: path, contentType: file.type, file, onProgress: (sent, total) => onProgress(sent / total) });
+    } catch (failure) {
+      if (!(failure instanceof ResumableUnsupported)) throw failure;
+      const plain = await supabase.storage.from(BUCKET).upload(path, file, { contentType: file.type, upsert: false });
+      if (plain.error) throw new Error(plain.error.message.toLowerCase().includes('size') ? `O arquivo excede o limite do armazenamento (${mb(maxBytes)}).` : 'Não foi possível enviar o arquivo ao armazenamento privado. Confirme que você entrou com a verificação em duas etapas (MFA) e tem acesso ao caso.');
+      onProgress(1);
+    }
+    await call({ action: 'finalize', case_id: caseId, path, title: docTitle, category: docCategory, document_date: docDate || '', file_name: file.name });
+  };
   const upload = async (event: React.FormEvent) => {
     event.preventDefault(); setError('');
-    if (!caseId) { setError('Selecione o caso do documento.'); return; }
-    if (!file) { setError('Selecione o arquivo.'); return; }
-    if (file.size <= 0) { setError('O arquivo está vazio.'); return; }
-    if (file.size > maxBytes) { setError(`O arquivo tem ${(file.size / 1048576).toFixed(1)} MB e o limite efetivo atual é ${mb(maxBytes)} por arquivo.`); return; }
-    if (!ALLOWED.includes(file.type)) { setError('Formato não permitido. Envie PDF, PNG ou JPEG.'); return; }
+    if (!caseId) { setError('Selecione o caso do documento. Se ainda não existe caso, crie um em Casos > Novo caso.'); return; }
+    if (!files.length) { setError('Selecione ao menos um arquivo.'); return; }
     setBusy(true); setProgress(0);
-    try {
-      const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_').slice(-120) || 'documento';
-      const path = `${caseId}/${crypto.randomUUID()}-${safeName}`;
-      try {
-        await uploadResumable({ endpoint: `${SUPABASE_URL}/storage/v1/upload/resumable`, apikey: SUPABASE_PUBLISHABLE_KEY, getToken: async () => { const session = await supabase.auth.getSession(); const token = session.data.session?.access_token; if (!token) throw new Error('Sessão expirada. Entre novamente.'); return token; }, bucket: BUCKET, objectName: path, contentType: file.type, file, onProgress: (sent, total) => setProgress(Math.round((sent / total) * 100)) });
-      } catch (failure) {
-        if (!(failure instanceof ResumableUnsupported)) throw failure;
-        const plain = await supabase.storage.from(BUCKET).upload(path, file, { contentType: file.type, upsert: false });
-        if (plain.error) throw new Error(plain.error.message.toLowerCase().includes('size') ? `O arquivo excede o limite do armazenamento (${mb(maxBytes)}).` : 'Não foi possível enviar o arquivo ao armazenamento privado.');
-        setProgress(100);
-      }
-      await call({ action: 'finalize', case_id: caseId, path, title, category: docCategory, document_date: docDate || '', file_name: file.name });
-      await cache.invalidateQueries({ queryKey: ['documents'] });
-      toast.success('Documento armazenado em contêiner privado.'); setOpen(false); setTitle(''); setFile(null); setProgress(0);
-    } catch (failure) { setError(errorMessage(failure)); }
-    finally { setBusy(false); }
+    const failed: File[] = []; const reasons: string[] = []; let done = 0;
+    for (let index = 0; index < files.length; index += 1) {
+      const current = files[index];
+      const baseTitle = (files.length === 1 && title.trim() ? title.trim() : current.name.replace(/\.[^.]+$/, '')).trim().slice(0, 200); const docTitle = baseTitle.length >= 2 ? baseTitle : 'Documento';
+      try { await sendOne(current, docTitle, fraction => setProgress(Math.max(1, Math.round(((index + fraction) / files.length) * 100)))); done += 1; }
+      catch (failure) { failed.push(current); reasons.push(`${current.name}: ${errorMessage(failure)}`); }
+    }
+    setBusy(false);
+    if (done) { await cache.invalidateQueries({ queryKey: ['documents'] }); }
+    if (!failed.length) { toast.success(done === 1 ? 'Documento armazenado em contêiner privado.' : `${done} documentos armazenados em contêiner privado.`); setOpen(false); setTitle(''); setFiles([]); setProgress(0); return; }
+    setFiles(failed); setProgress(0);
+    if (done) toast.success(`${done} enviado${done === 1 ? '' : 's'}.`);
+    setError(`Não enviado${failed.length === 1 ? '' : 's'}: ${reasons.join(' | ')}`);
   };
   const download = async (row: DocumentRow) => {
     setBusy(true);
@@ -99,6 +111,6 @@ export default function DocumentsPage() {
       <QueryState loading={documents.isPending} error={documents.isError} empty={!documents.isPending && !documents.isError && !rows.length} onRetry={() => void documents.refetch()} title={term || category ? 'Nenhum documento para estes filtros' : 'Nenhum documento armazenado'} description="Envie o primeiro arquivo vinculado a um caso." />
       {!!rows.length && <div className="table-scroll"><table className="work-table"><thead><tr><th>Documento</th><th>Caso</th><th>Categoria</th><th>Data</th><th>Enviado por</th><th>Tamanho</th><th className="text-right">Ações</th></tr></thead><tbody>{rows.map(row => <tr key={row.id}><td className="font-medium"><span className="flex items-center gap-2"><FileText size={14} className="text-muted-foreground" />{row.title}</span><span className="mt-1 block text-[11px] text-muted-foreground">{row.file_name}</span></td><td>{row.linked_case?.reference || '—'}</td><td><span className="status-pill status-neutral">{documentCategories[row.category as keyof typeof documentCategories] || row.category}</span></td><td>{dateLabel(row.document_date || row.created_at)}</td><td>{directory.data?.find(m => m.id === row.uploaded_by)?.name || 'Integrante'}</td><td>{size(row.size_bytes)}</td><td><div className="flex justify-end gap-1"><Button variant="ghost" size="icon" aria-label="Baixar documento" disabled={busy} onClick={() => void download(row)}><Download /></Button><Button variant="ghost" size="icon" aria-label="Excluir documento" disabled={busy} onClick={() => void remove(row)}><Trash2 /></Button></div></td></tr>)}</tbody></table></div>}
       <div className="table-pagination"><span>{documents.isError ? 'Consulta indisponível' : documents.isPending ? 'Consultando…' : `${count} documento${count === 1 ? '' : 's'} · 20 por página`}</span><div className="flex items-center gap-3"><Button variant="outline" size="icon" disabled={page === 0 || documents.isFetching} onClick={() => setPage(p => p - 1)} aria-label="Página anterior"><ChevronLeft /></Button><span>{page + 1} / {Math.max(1, Math.ceil(count / 20))}</span><Button variant="outline" size="icon" disabled={(page + 1) * 20 >= count || documents.isFetching} onClick={() => setPage(p => p + 1)} aria-label="Próxima página"><ChevronRight /></Button></div></div></section>
-    <Dialog open={open} onOpenChange={value => { if (!busy) setOpen(value); }}><DialogContent><DialogHeader><DialogTitle>Enviar documento</DialogTitle><DialogDescription>{`PDF, PNG ou JPEG até ${mb(maxBytes)}. O arquivo vai direto ao armazenamento privado, em partes, e só é acessível a quem tem acesso ao caso.`}</DialogDescription></DialogHeader><form onSubmit={upload} className="space-y-4"><div><label className="field-label">Caso vinculado *</label><LookupInput table="amcf_cases" value={caseId} onChange={setCaseId} required disabled={busy} label="Caso do documento" /></div><div><label className="field-label" htmlFor="doc-title">Nome do documento *</label><Input id="doc-title" value={title} onChange={e => setTitle(e.target.value)} minLength={2} maxLength={200} required disabled={busy} /></div><div className="grid gap-4 sm:grid-cols-2"><div><label className="field-label" htmlFor="doc-category">Categoria *</label><select id="doc-category" className="native-select" value={docCategory} onChange={e => setDocCategory(e.target.value)} disabled={busy}>{Object.entries(documentCategories).map(([id, name]) => <option key={id} value={id}>{name}</option>)}</select></div><div><label className="field-label" htmlFor="doc-date">Data do documento</label><Input id="doc-date" type="date" value={docDate} onChange={e => setDocDate(e.target.value)} disabled={busy} /></div></div><div><label className="field-label" htmlFor="doc-file">Arquivo *</label><Input id="doc-file" type="file" accept="application/pdf,image/png,image/jpeg" onChange={e => setFile(e.target.files?.[0] || null)} required disabled={busy} /></div>{busy && progress > 0 && <div aria-label="Progresso do envio" className="space-y-1"><div className="h-2 w-full overflow-hidden rounded bg-muted"><div className="h-full bg-primary transition-all" style={{ width: `${progress}%` }} /></div><p className="text-xs text-muted-foreground">{progress}% enviado — não feche esta janela.</p></div>}{error && <p role="alert" className="text-sm text-destructive">{error}</p>}<div className="flex justify-end gap-2 border-t pt-4"><Button type="button" variant="outline" onClick={() => setOpen(false)} disabled={busy}>Cancelar</Button><Button type="submit" disabled={busy}>{busy ? 'Enviando…' : 'Enviar ao armazenamento privado'}</Button></div></form></DialogContent></Dialog>
+    <Dialog open={open} onOpenChange={value => { if (!busy) setOpen(value); }}><DialogContent><DialogHeader><DialogTitle>Enviar documento</DialogTitle><DialogDescription>{`PDF, PNG ou JPEG até ${mb(maxBytes)}. O arquivo vai direto ao armazenamento privado, em partes, e só é acessível a quem tem acesso ao caso.`}</DialogDescription></DialogHeader><form onSubmit={upload} className="space-y-4">{casesTotal.data === 0 && <div className="notice"><p>Ainda não existe nenhum caso. <Link to="/casos" className="underline">Crie um caso primeiro</Link> (Casos &gt; Novo caso) e depois volte para enviar o documento.</p></div>}<div><label className="field-label">Caso vinculado *</label><LookupInput table="amcf_cases" value={caseId} onChange={setCaseId} required disabled={busy} label="Caso do documento" /></div><div><label className="field-label" htmlFor="doc-title">Nome do documento</label><Input id="doc-title" value={title} onChange={e => setTitle(e.target.value)} minLength={2} maxLength={200} placeholder={files.length > 1 ? 'Cada arquivo usa o próprio nome' : 'Opcional: usa o nome do arquivo'} disabled={busy || files.length > 1} /></div><div className="grid gap-4 sm:grid-cols-2"><div><label className="field-label" htmlFor="doc-category">Categoria *</label><select id="doc-category" className="native-select" value={docCategory} onChange={e => setDocCategory(e.target.value)} disabled={busy}>{Object.entries(documentCategories).map(([id, name]) => <option key={id} value={id}>{name}</option>)}</select></div><div><label className="field-label" htmlFor="doc-date">Data do documento</label><Input id="doc-date" type="date" value={docDate} onChange={e => setDocDate(e.target.value)} disabled={busy} /></div></div><div><label className="field-label" htmlFor="doc-file">Arquivos * (pode escolher vários)</label><Input id="doc-file" type="file" multiple accept="application/pdf,image/png,image/jpeg" onChange={e => setFiles(Array.from(e.target.files || []))} required disabled={busy} />{files.length > 1 && <p className="mt-2 text-xs text-muted-foreground">{files.length} arquivos selecionados.</p>}</div>{busy && progress > 0 && <div aria-label="Progresso do envio" className="space-y-1"><div className="h-2 w-full overflow-hidden rounded bg-muted"><div className="h-full bg-primary transition-all" style={{ width: `${progress}%` }} /></div><p className="text-xs text-muted-foreground">{progress}% enviado — não feche esta janela.</p></div>}{error && <p role="alert" className="text-sm text-destructive">{error}</p>}<div className="flex justify-end gap-2 border-t pt-4"><Button type="button" variant="outline" onClick={() => setOpen(false)} disabled={busy}>Cancelar</Button><Button type="submit" disabled={busy}>{busy ? 'Enviando…' : 'Enviar ao armazenamento privado'}</Button></div></form></DialogContent></Dialog>
   </>;
 }

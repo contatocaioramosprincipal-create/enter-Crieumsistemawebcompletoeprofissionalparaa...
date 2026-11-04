@@ -1,0 +1,320 @@
+-- Migração original: migration_20260930_015924000
+begin;
+create table public.amcf_integration_keys (
+ id uuid primary key default gen_random_uuid(),
+ label text not null check(char_length(label) between 2 and 80),
+ token_hash text not null unique,
+ scopes text[] not null default '{}',
+ owner_id uuid not null references public.amcf_members(id),
+ active boolean not null default true,
+ created_at timestamptz not null default now(),
+ last_used_at timestamptz,
+ revoked_at timestamptz
+);
+create table public.amcf_integration_logs (
+ id bigint generated always as identity primary key,
+ at timestamptz not null default now(),
+ key_id uuid,
+ source text not null default 'api',
+ action text not null,
+ success boolean not null,
+ resource text,
+ resource_id uuid,
+ external_ref text,
+ detail text
+);
+create index amcf_integration_logs_at_idx on public.amcf_integration_logs(at desc);
+create table public.amcf_integration_refs (
+ key_id uuid not null references public.amcf_integration_keys(id) on delete cascade,
+ resource text not null,
+ external_ref text not null,
+ resource_id uuid not null,
+ created_at timestamptz not null default now(),
+ primary key (key_id, resource, external_ref)
+);
+create table public.amcf_integration_events (
+ id bigint generated always as identity primary key,
+ event text not null,
+ resource text not null,
+ resource_id uuid,
+ payload jsonb not null default '{}',
+ created_at timestamptz not null default now(),
+ delivered_at timestamptz
+);
+create index amcf_integration_events_pending_idx on public.amcf_integration_events(delivered_at, id);
+create table public.amcf_integration_hooks (
+ id uuid primary key default gen_random_uuid(),
+ label text not null check(char_length(label) between 2 and 80),
+ url text not null check(url ~ '^https://[^\s]+$'),
+ secret text not null check(char_length(secret) between 16 and 200),
+ events text[] not null default '{}',
+ active boolean not null default true,
+ created_by uuid references public.amcf_members(id),
+ created_at timestamptz not null default now()
+);
+create table public.amcf_integration_deliveries (
+ id bigint generated always as identity primary key,
+ event_id bigint not null references public.amcf_integration_events(id) on delete cascade,
+ hook_id uuid not null references public.amcf_integration_hooks(id) on delete cascade,
+ request_id bigint,
+ attempts integer not null default 1,
+ status integer,
+ created_at timestamptz not null default now(),
+ updated_at timestamptz not null default now()
+);
+
+alter table public.amcf_integration_keys enable row level security;
+alter table public.amcf_integration_logs enable row level security;
+alter table public.amcf_integration_refs enable row level security;
+alter table public.amcf_integration_events enable row level security;
+alter table public.amcf_integration_hooks enable row level security;
+alter table public.amcf_integration_deliveries enable row level security;
+
+create policy integration_keys_admin on public.amcf_integration_keys for all to authenticated using (public.amcf_role() = 'admin') with check (public.amcf_role() = 'admin');
+create policy integration_logs_read on public.amcf_integration_logs for select to authenticated using (public.amcf_is_manager());
+create policy integration_refs_admin on public.amcf_integration_refs for all to authenticated using (public.amcf_role() = 'admin') with check (public.amcf_role() = 'admin');
+create policy integration_events_read on public.amcf_integration_events for select to authenticated using (public.amcf_is_manager());
+create policy integration_events_admin on public.amcf_integration_events for update to authenticated using (public.amcf_role() = 'admin') with check (public.amcf_role() = 'admin');
+create policy integration_hooks_admin on public.amcf_integration_hooks for all to authenticated using (public.amcf_role() = 'admin') with check (public.amcf_role() = 'admin');
+create policy integration_deliveries_read on public.amcf_integration_deliveries for select to authenticated using (public.amcf_is_manager());
+
+create function public.amcf_api_log(p_key uuid, p_action text, p_success boolean, p_resource text default null, p_resource_id uuid default null, p_external_ref text default null, p_detail text default null) returns void language sql security definer set search_path = public as $$
+ insert into public.amcf_integration_logs(key_id, source, action, success, resource, resource_id, external_ref, detail) values (p_key, 'api', p_action, p_success, p_resource, p_resource_id, p_external_ref, left(coalesce(p_detail, ''), 300))
+$$;
+create function public.amcf_api_owner(p_key uuid) returns uuid language sql stable security definer set search_path = public as $$ select owner_id from public.amcf_integration_keys where id = p_key $$;
+create function public.amcf_api_key(p_token text, p_scope text) returns uuid language plpgsql security definer set search_path = public as $$
+declare found_key public.amcf_integration_keys;
+begin
+ if p_token is null or char_length(p_token) < 24 then return null; end if;
+ select * into found_key from public.amcf_integration_keys where token_hash = encode(digest(p_token, 'sha256'), 'hex') and active and revoked_at is null;
+ if not found then return null; end if;
+ if p_scope is not null and not (p_scope = any(found_key.scopes)) then return null; end if;
+ update public.amcf_integration_keys set last_used_at = now() where id = found_key.id;
+ return found_key.id;
+end $$;
+
+create function public.amcf_api_ping(p_token text) returns jsonb language plpgsql security definer set search_path = public as $$
+declare k uuid;
+begin
+ k := public.amcf_api_key(p_token, null);
+ if k is null then return jsonb_build_object('ok', false, 'error', 'token inválido, revogado ou incompleto'); end if;
+ perform public.amcf_api_log(k, 'ping', true);
+ return jsonb_build_object('ok', true, 'key_id', k, 'scopes', (select scopes from public.amcf_integration_keys where id = k), 'time', now());
+end $$;
+
+create function public.amcf_api_contact_upsert(p_token text, p_external_ref text, p_name text, p_kind text default 'other', p_email text default null, p_phone text default null, p_source text default null, p_notes text default null) returns jsonb language plpgsql security definer set search_path = public as $$
+declare k uuid; owner uuid; existing uuid; normalized_email text; normalized_phone text;
+begin
+ k := public.amcf_api_key(p_token, 'contacts:write');
+ if k is null then return jsonb_build_object('ok', false, 'error', 'token inválido ou sem escopo contacts:write'); end if;
+ if p_external_ref is null or char_length(p_external_ref) < 3 then return jsonb_build_object('ok', false, 'error', 'external_ref obrigatório'); end if;
+ if p_name is null or char_length(trim(p_name)) < 2 then return jsonb_build_object('ok', false, 'error', 'name obrigatório'); end if;
+ owner := public.amcf_api_owner(k);
+ normalized_email := nullif(lower(trim(coalesce(p_email, ''))), '');
+ normalized_phone := nullif(regexp_replace(coalesce(p_phone, ''), '[^0-9]', '', 'g'), '');
+ select resource_id into existing from public.amcf_integration_refs where key_id = k and resource = 'contact' and external_ref = p_external_ref;
+ if existing is null then
+  select id into existing from public.amcf_contacts where (normalized_email is not null and lower(email) = normalized_email) or (normalized_phone is not null and phone = normalized_phone) order by created_at limit 1;
+ end if;
+ if existing is not null then
+  update public.amcf_contacts set name = trim(p_name), kind = coalesce(nullif(p_kind, ''), kind), email = coalesce(normalized_email, email), phone = coalesce(normalized_phone, phone), source = coalesce(nullif(p_source, ''), source), notes = coalesce(nullif(p_notes, ''), notes) where id = existing;
+ else
+  insert into public.amcf_contacts(name, kind, email, phone, source, notes, responsible_id, created_by) values (trim(p_name), coalesce(nullif(p_kind, ''), 'other'), normalized_email, normalized_phone, coalesce(p_source, ''), coalesce(p_notes, ''), owner, owner) returning id into existing;
+ end if;
+ insert into public.amcf_integration_refs(key_id, resource, external_ref, resource_id) values (k, 'contact', p_external_ref, existing) on conflict (key_id, resource, external_ref) do nothing;
+ perform public.amcf_api_log(k, 'contact.upsert', true, 'amcf_contacts', existing, p_external_ref);
+ return jsonb_build_object('ok', true, 'contact_id', existing);
+end $$;
+
+create function public.amcf_api_opportunity_upsert(p_token text, p_external_ref text, p_title text, p_service text, p_contact_id uuid, p_stage_name text default null, p_amount_cents bigint default null, p_next_step text default null) returns jsonb language plpgsql security definer set search_path = public as $$
+declare k uuid; owner uuid; existing uuid; stage uuid; won_stage uuid;
+begin
+ k := public.amcf_api_key(p_token, 'opportunities:write');
+ if k is null then return jsonb_build_object('ok', false, 'error', 'token inválido ou sem escopo opportunities:write'); end if;
+ if p_external_ref is null or char_length(p_external_ref) < 3 then return jsonb_build_object('ok', false, 'error', 'external_ref obrigatório'); end if;
+ if p_contact_id is null or not exists(select 1 from public.amcf_contacts where id = p_contact_id) then return jsonb_build_object('ok', false, 'error', 'contact_id inválido'); end if;
+ if p_title is null or char_length(trim(p_title)) < 3 then return jsonb_build_object('ok', false, 'error', 'title obrigatório'); end if;
+ if p_service is null or char_length(trim(p_service)) < 2 then return jsonb_build_object('ok', false, 'error', 'service obrigatório'); end if;
+ owner := public.amcf_api_owner(k);
+ select coalesce((select id from public.amcf_pipeline_stages where name = p_stage_name), (select id from public.amcf_pipeline_stages where outcome = 'open' order by position limit 1)) into stage;
+ select resource_id into existing from public.amcf_integration_refs where key_id = k and resource = 'opportunity' and external_ref = p_external_ref;
+ if existing is not null then
+  update public.amcf_opportunities set title = trim(p_title), service = trim(p_service), contact_id = p_contact_id, stage_id = coalesce(stage, stage_id), next_step = coalesce(p_next_step, next_step) where id = existing;
+ else
+  insert into public.amcf_opportunities(title, contact_id, stage_id, service, next_step, responsible_id, created_by) values (trim(p_title), p_contact_id, stage, trim(p_service), coalesce(p_next_step, ''), owner, owner) returning id into existing;
+ end if;
+ if p_amount_cents is not null and p_amount_cents >= 0 then
+  insert into public.amcf_opportunity_values(opportunity_id, amount_cents) values (existing, p_amount_cents) on conflict (opportunity_id) do update set amount_cents = excluded.amount_cents;
+ end if;
+ insert into public.amcf_integration_refs(key_id, resource, external_ref, resource_id) values (k, 'opportunity', p_external_ref, existing) on conflict (key_id, resource, external_ref) do nothing;
+ select id into won_stage from public.amcf_pipeline_stages where outcome = 'won' order by position limit 1;
+ perform public.amcf_api_log(k, 'opportunity.upsert', true, 'amcf_opportunities', existing, p_external_ref);
+ return jsonb_build_object('ok', true, 'opportunity_id', existing, 'stage_id', stage, 'won_stage_id', won_stage);
+end $$;
+
+create function public.amcf_api_opportunity_stage(p_token text, p_opportunity_id uuid, p_stage_name text) returns jsonb language plpgsql security definer set search_path = public as $$
+declare k uuid; stage uuid;
+begin
+ k := public.amcf_api_key(p_token, 'opportunities:write');
+ if k is null then return jsonb_build_object('ok', false, 'error', 'token inválido ou sem escopo opportunities:write'); end if;
+ select id into stage from public.amcf_pipeline_stages where name = p_stage_name;
+ if stage is null then return jsonb_build_object('ok', false, 'error', 'etapa inexistente'); end if;
+ if not exists(select 1 from public.amcf_opportunities where id = p_opportunity_id) then return jsonb_build_object('ok', false, 'error', 'oportunidade inexistente'); end if;
+ update public.amcf_opportunities set stage_id = stage where id = p_opportunity_id;
+ perform public.amcf_api_log(k, 'opportunity.stage', true, 'amcf_opportunities', p_opportunity_id, null, p_stage_name);
+ return jsonb_build_object('ok', true, 'opportunity_id', p_opportunity_id, 'stage_id', stage);
+end $$;
+
+create function public.amcf_api_case_create(p_token text, p_external_ref text, p_contact_id uuid, p_title text, p_service text, p_opportunity_id uuid default null, p_reference text default null, p_due_on date default null) returns jsonb language plpgsql security definer set search_path = public as $$
+declare k uuid; owner uuid; existing uuid; triage uuid; new_ref text;
+begin
+ k := public.amcf_api_key(p_token, 'cases:write');
+ if k is null then return jsonb_build_object('ok', false, 'error', 'token inválido ou sem escopo cases:write'); end if;
+ if p_external_ref is null or char_length(p_external_ref) < 3 then return jsonb_build_object('ok', false, 'error', 'external_ref obrigatório'); end if;
+ if p_contact_id is null or not exists(select 1 from public.amcf_contacts where id = p_contact_id) then return jsonb_build_object('ok', false, 'error', 'contact_id inválido'); end if;
+ if p_title is null or char_length(trim(p_title)) < 3 then return jsonb_build_object('ok', false, 'error', 'title obrigatório'); end if;
+ if p_service is null or char_length(trim(p_service)) < 2 then return jsonb_build_object('ok', false, 'error', 'service obrigatório'); end if;
+ if p_opportunity_id is not null and not exists(select 1 from public.amcf_opportunities where id = p_opportunity_id and contact_id = p_contact_id) then return jsonb_build_object('ok', false, 'error', 'oportunidade incompatível com o contato'); end if;
+ owner := public.amcf_api_owner(k);
+ select resource_id into existing from public.amcf_integration_refs where key_id = k and resource = 'case' and external_ref = p_external_ref;
+ if existing is not null then return jsonb_build_object('ok', true, 'case_id', existing, 'duplicated', true); end if;
+ select id into triage from public.amcf_case_stages where name = 'Triagem';
+ new_ref := coalesce(nullif(trim(p_reference), ''), 'AMCF-' || to_char((now() at time zone 'America/Bahia'), 'YYYY') || '-' || upper(substr(replace(gen_random_uuid()::text, '-', ''), 1, 8)));
+ insert into public.amcf_cases(reference, title, contact_id, opportunity_id, service, stage_id, responsible_id, opened_on, due_on, created_by) values (new_ref, trim(p_title), p_contact_id, p_opportunity_id, trim(p_service), triage, owner, (now() at time zone 'America/Bahia')::date, p_due_on, owner) returning id into existing;
+ insert into public.amcf_integration_refs(key_id, resource, external_ref, resource_id) values (k, 'case', p_external_ref, existing);
+ perform public.amcf_api_log(k, 'case.create', true, 'amcf_cases', existing, p_external_ref);
+ return jsonb_build_object('ok', true, 'case_id', existing, 'reference', new_ref);
+end $$;
+
+create function public.amcf_api_task_upsert(p_token text, p_external_ref text, p_title text, p_due_on date, p_case_id uuid default null, p_contact_id uuid default null, p_priority text default 'normal', p_status text default 'pending', p_description text default null, p_responsible_id uuid default null) returns jsonb language plpgsql security definer set search_path = public as $$
+declare k uuid; owner uuid; existing uuid; responsible uuid;
+begin
+ k := public.amcf_api_key(p_token, 'tasks:write');
+ if k is null then return jsonb_build_object('ok', false, 'error', 'token inválido ou sem escopo tasks:write'); end if;
+ if p_external_ref is null or char_length(p_external_ref) < 3 then return jsonb_build_object('ok', false, 'error', 'external_ref obrigatório'); end if;
+ if p_title is null or char_length(trim(p_title)) < 3 then return jsonb_build_object('ok', false, 'error', 'title obrigatório'); end if;
+ if p_due_on is null then return jsonb_build_object('ok', false, 'error', 'due_on obrigatório'); end if;
+ if p_case_id is null and p_contact_id is null then return jsonb_build_object('ok', false, 'error', 'informe case_id ou contact_id'); end if;
+ owner := public.amcf_api_owner(k);
+ responsible := coalesce(p_responsible_id, owner);
+ if not exists(select 1 from public.amcf_members where id = responsible and status = 'active') then return jsonb_build_object('ok', false, 'error', 'responsável inválido'); end if;
+ select resource_id into existing from public.amcf_integration_refs where key_id = k and resource = 'task' and external_ref = p_external_ref;
+ if existing is not null then
+  update public.amcf_tasks set title = trim(p_title), due_on = p_due_on, priority = coalesce(nullif(p_priority,''), priority), status = coalesce(nullif(p_status,''), status), description = coalesce(p_description, description), responsible_id = responsible where id = existing;
+ else
+  insert into public.amcf_tasks(title, description, case_id, contact_id, responsible_id, priority, status, due_on, created_by) values (trim(p_title), coalesce(p_description, ''), p_case_id, p_contact_id, responsible, coalesce(nullif(p_priority,''),'normal'), coalesce(nullif(p_status,''),'pending'), p_due_on, owner) returning id into existing;
+ end if;
+ insert into public.amcf_integration_refs(key_id, resource, external_ref, resource_id) values (k, 'task', p_external_ref, existing) on conflict (key_id, resource, external_ref) do nothing;
+ perform public.amcf_api_log(k, 'task.upsert', true, 'amcf_tasks', existing, p_external_ref);
+ return jsonb_build_object('ok', true, 'task_id', existing);
+end $$;
+
+create function public.amcf_api_activity_create(p_token text, p_external_ref text, p_contact_id uuid, p_summary text, p_case_id uuid default null, p_kind text default 'note', p_next_step text default null, p_next_on date default null) returns jsonb language plpgsql security definer set search_path = public as $$
+declare k uuid; owner uuid; existing uuid; created uuid;
+begin
+ k := public.amcf_api_key(p_token, 'activities:write');
+ if k is null then return jsonb_build_object('ok', false, 'error', 'token inválido ou sem escopo activities:write'); end if;
+ if p_external_ref is null or char_length(p_external_ref) < 3 then return jsonb_build_object('ok', false, 'error', 'external_ref obrigatório'); end if;
+ if p_contact_id is null then return jsonb_build_object('ok', false, 'error', 'contact_id obrigatório'); end if;
+ if p_summary is null or char_length(trim(p_summary)) < 1 then return jsonb_build_object('ok', false, 'error', 'summary obrigatório'); end if;
+ owner := public.amcf_api_owner(k);
+ select resource_id into existing from public.amcf_integration_refs where key_id = k and resource = 'activity' and external_ref = p_external_ref;
+ if existing is not null then return jsonb_build_object('ok', true, 'activity_id', existing, 'duplicated', true); end if;
+ insert into public.amcf_interactions(contact_id, case_id, kind, summary, next_step, next_on, created_by) values (p_contact_id, p_case_id, coalesce(nullif(p_kind,''),'note'), trim(p_summary), coalesce(p_next_step, ''), p_next_on, owner) returning id into created;
+ insert into public.amcf_integration_refs(key_id, resource, external_ref, resource_id) values (k, 'activity', p_external_ref, created);
+ perform public.amcf_api_log(k, 'activity.create', true, 'amcf_interactions', created, p_external_ref);
+ return jsonb_build_object('ok', true, 'activity_id', created);
+end $$;
+
+create function public.amcf_api_agenda(p_token text, p_from date, p_to date) returns jsonb language plpgsql security definer set search_path = public as $$
+declare k uuid; result jsonb;
+begin
+ k := public.amcf_api_key(p_token, 'agenda:read');
+ if k is null then return jsonb_build_object('ok', false, 'error', 'token inválido ou sem escopo agenda:read'); end if;
+ if p_from is null or p_to is null or p_to < p_from then return jsonb_build_object('ok', false, 'error', 'período inválido'); end if;
+ select jsonb_build_object(
+  'tasks', coalesce((select jsonb_agg(jsonb_build_object('id', id, 'title', title, 'due_on', due_on, 'status', status, 'priority', priority, 'case_id', case_id) order by due_on) from public.amcf_tasks where due_on between p_from and p_to), '[]'),
+  'cases', coalesce((select jsonb_agg(jsonb_build_object('id', id, 'reference', reference, 'title', title, 'due_on', due_on, 'stage', (select name from public.amcf_case_stages s where s.id = stage_id)) order by due_on) from public.amcf_cases where due_on between p_from and p_to and archived_at is null), '[]')
+ ) into result;
+ perform public.amcf_api_log(k, 'agenda.read', true, null, null, null, p_from::text || '..' || p_to::text);
+ return jsonb_build_object('ok', true, 'period', jsonb_build_object('from', p_from, 'to', p_to), 'data', result);
+end $$;
+
+create function public.amcf_api_events(p_token text, p_limit integer default 50) returns jsonb language plpgsql security definer set search_path = public as $$
+declare k uuid; items jsonb; safe_limit integer;
+begin
+ k := public.amcf_api_key(p_token, 'events:read');
+ if k is null then return jsonb_build_object('ok', false, 'error', 'token inválido ou sem escopo events:read'); end if;
+ safe_limit := least(greatest(coalesce(p_limit, 50), 1), 200);
+ select coalesce(jsonb_agg(jsonb_build_object('id', id, 'event', event, 'resource', resource, 'resource_id', resource_id, 'payload', payload, 'created_at', created_at) order by id), '[]') into items from (select * from public.amcf_integration_events where delivered_at is null order by id limit safe_limit) e;
+ update public.amcf_integration_events set delivered_at = now() where delivered_at is null and id in (select (value->>'id')::bigint from jsonb_array_elements(items) value);
+ perform public.amcf_api_log(k, 'events.read', true, null, null, null, jsonb_array_length(items)::text || ' evento(s)');
+ return jsonb_build_object('ok', true, 'count', jsonb_array_length(items), 'events', items);
+end $$;
+
+create function public.amcf_integration_emit() returns trigger language plpgsql security definer set search_path = public as $$
+declare body jsonb; evt text; rid uuid;
+begin
+ body := to_jsonb(new); rid := (body->>'id')::uuid;
+ if tg_table_name = 'amcf_contacts' and tg_op = 'INSERT' then evt := 'contact.created';
+ elsif tg_table_name = 'amcf_opportunities' and tg_op = 'INSERT' then evt := 'opportunity.created';
+ elsif tg_table_name = 'amcf_opportunities' and tg_op = 'UPDATE' and (body->>'stage_id') is distinct from (to_jsonb(old)->>'stage_id') then evt := case when exists(select 1 from public.amcf_pipeline_stages s where s.id = (body->>'stage_id')::uuid and s.outcome = 'won') then 'opportunity.won' else 'opportunity.stage_changed' end;
+ elsif tg_table_name = 'amcf_cases' and tg_op = 'INSERT' then evt := 'case.created';
+ elsif tg_table_name = 'amcf_tasks' and tg_op = 'INSERT' then evt := 'task.created';
+ elsif tg_table_name = 'amcf_tasks' and tg_op = 'UPDATE' and (body->>'status') = 'done' and (to_jsonb(old)->>'status') is distinct from 'done' then evt := 'task.completed';
+ else return coalesce(new, old);
+ end if;
+ insert into public.amcf_integration_events(event, resource, resource_id, payload) values (evt, tg_table_name, rid, jsonb_strip_nulls(jsonb_build_object('id', rid, 'reference', body->>'reference', 'title', body->>'title', 'name', body->>'name', 'email', body->>'email', 'status', body->>'status', 'service', body->>'service', 'contact_id', body->>'contact_id', 'case_id', body->>'case_id', 'due_on', body->>'due_on')));
+ return coalesce(new, old);
+end $$;
+
+create function public.amcf_integration_dispatch() returns trigger language plpgsql security definer set search_path = public, net as $$
+declare hook record; body jsonb; request bigint;
+begin
+ body := jsonb_build_object('event', new.event, 'resource', new.resource, 'resource_id', new.resource_id, 'payload', new.payload, 'created_at', new.created_at);
+ for hook in select * from public.amcf_integration_hooks where active and (cardinality(events) = 0 or new.event = any(events)) loop
+  begin
+   select net.http_post(url := hook.url, body := body, headers := jsonb_build_object('Content-Type', 'application/json', 'X-AMCF-Event', new.event, 'X-AMCF-Signature', 'sha256=' || encode(hmac(body::text, hook.secret, 'sha256'), 'hex'))) into request;
+   insert into public.amcf_integration_deliveries(event_id, hook_id, request_id) values (new.id, hook.id, request);
+  exception when others then
+   insert into public.amcf_integration_deliveries(event_id, hook_id, request_id, status) values (new.id, hook.id, null, -1);
+  end;
+ end loop;
+ return new;
+end $$;
+
+create function public.amcf_integration_retry_failures() returns jsonb language plpgsql security definer set search_path = public, net as $$
+declare item record; request bigint; code integer; reconciled integer := 0; retried integer := 0;
+begin
+ if public.amcf_role() is distinct from 'admin' then raise exception 'Apenas administrador' using errcode = '42501'; end if;
+ for item in select * from public.amcf_integration_deliveries where status is null and request_id is not null loop
+  select status_code into code from net._http_response where id = item.request_id;
+  if code is not null then update public.amcf_integration_deliveries set status = code, updated_at = now() where id = item.id; reconciled := reconciled + 1; end if;
+ end loop;
+ for item in select d.id, d.attempts, h.url, h.secret, e.event, e.resource, e.resource_id, e.payload, e.created_at as event_at from public.amcf_integration_deliveries d join public.amcf_integration_hooks h on h.id = d.hook_id join public.amcf_integration_events e on e.id = d.event_id where d.attempts < 3 and (d.status is null or d.status < 200 or d.status >= 300) and d.updated_at < now() - interval '2 minutes' loop
+  begin
+   select net.http_post(url := item.url, body := jsonb_build_object('event', item.event, 'resource', item.resource, 'resource_id', item.resource_id, 'payload', item.payload, 'created_at', item.event_at), headers := jsonb_build_object('Content-Type', 'application/json', 'X-AMCF-Event', item.event, 'X-AMCF-Signature', 'sha256=' || encode(hmac(jsonb_build_object('event', item.event, 'resource', item.resource, 'resource_id', item.resource_id, 'payload', item.payload, 'created_at', item.event_at)::text, item.secret, 'sha256'), 'hex'))) into request;
+   update public.amcf_integration_deliveries set request_id = request, attempts = attempts + 1, status = null, updated_at = now() where id = item.id;
+   retried := retried + 1;
+  exception when others then
+   update public.amcf_integration_deliveries set status = -1, attempts = attempts + 1, updated_at = now() where id = item.id;
+  end;
+ end loop;
+ return jsonb_build_object('reconciled', reconciled, 'retried', retried);
+end $$;
+
+create trigger integration_emit_contact after insert on public.amcf_contacts for each row execute function public.amcf_integration_emit();
+create trigger integration_emit_opportunity after insert or update on public.amcf_opportunities for each row execute function public.amcf_integration_emit();
+create trigger integration_emit_case after insert on public.amcf_cases for each row execute function public.amcf_integration_emit();
+create trigger integration_emit_task after insert or update on public.amcf_tasks for each row execute function public.amcf_integration_emit();
+create trigger integration_dispatch_event after insert on public.amcf_integration_events for each row execute function public.amcf_integration_dispatch();
+
+revoke all on function public.amcf_api_ping(text), public.amcf_api_contact_upsert(text,text,text,text,text,text,text,text), public.amcf_api_opportunity_upsert(text,text,text,text,uuid,text,bigint,text), public.amcf_api_opportunity_stage(text,uuid,text), public.amcf_api_case_create(text,text,uuid,text,text,uuid,text,date), public.amcf_api_task_upsert(text,text,text,date,uuid,uuid,text,text,text,uuid), public.amcf_api_activity_create(text,text,uuid,text,uuid,text,text,date), public.amcf_api_agenda(text,date,date), public.amcf_api_events(text,integer) from public;
+grant execute on function public.amcf_api_ping(text), public.amcf_api_contact_upsert(text,text,text,text,text,text,text,text), public.amcf_api_opportunity_upsert(text,text,text,text,uuid,text,bigint,text), public.amcf_api_opportunity_stage(text,uuid,text), public.amcf_api_case_create(text,text,uuid,text,text,uuid,text,date), public.amcf_api_task_upsert(text,text,text,date,uuid,uuid,text,text,text,uuid), public.amcf_api_activity_create(text,text,uuid,text,uuid,text,text,date), public.amcf_api_agenda(text,date,date), public.amcf_api_events(text,integer) to anon, authenticated;
+revoke all on function public.amcf_integration_retry_failures() from public, anon;
+grant execute on function public.amcf_integration_retry_failures() to authenticated;
+revoke all on public.amcf_integration_keys, public.amcf_integration_logs, public.amcf_integration_refs, public.amcf_integration_events, public.amcf_integration_hooks, public.amcf_integration_deliveries from anon;
+grant select, insert, update, delete on public.amcf_integration_keys, public.amcf_integration_hooks to authenticated;
+grant select on public.amcf_integration_logs, public.amcf_integration_refs, public.amcf_integration_events, public.amcf_integration_deliveries to authenticated;
+grant update on public.amcf_integration_events, public.amcf_integration_deliveries to authenticated;
+commit;

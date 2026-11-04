@@ -1,0 +1,3 @@
+-- Copiado sem alterações da migração original: migration_20260929_164935000
+revoke all on public.amcf_members,public.amcf_settings,public.amcf_organizations,public.amcf_contacts,public.amcf_pipeline_stages,public.amcf_case_stages,public.amcf_opportunities,public.amcf_opportunity_values,public.amcf_cases,public.amcf_case_assignments,public.amcf_interactions,public.amcf_case_checklist,public.amcf_tasks,public.amcf_audit_events from anon;
+revoke all on function public.amcf_role(),public.amcf_is_manager(),public.amcf_can_case(uuid),public.amcf_can_contact(uuid),public.amcf_access_context(),public.amcf_directory(),public.amcf_manage_member(uuid,text,text),public.amcf_dashboard(),public.amcf_guard_row(),public.amcf_audit_row(),public.amcf_guard_organization_link() from anon;

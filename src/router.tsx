@@ -4,20 +4,24 @@ import Overview from '@/pages/Overview';
 import QueryState from '@/components/data-table/QueryState';
 const RegistryPage = lazy(() => import('@/features/registry/RegistryPage'));
 const CaseDetail = lazy(() => import('@/features/cases/CaseDetail'));
+const ContactDetail = lazy(() => import('@/features/registry/ContactDetail'));
 const SettingsPage = lazy(() => import('@/features/team/SettingsPage'));
 const PendingModule = lazy(() => import('@/pages/PendingModule'));
 const Agenda = lazy(() => import('@/pages/Agenda'));
 const DocumentsPage = lazy(() => import('@/features/documents/DocumentsPage'));
 const FinancePage = lazy(() => import('@/features/finance/FinancePage'));
 const ReportsPage = lazy(() => import('@/pages/ReportsPage'));
+const PericiaAssistantPage = lazy(() => import('@/features/assistant/PericiaAssistantPage'));
 const pending = (title: string, dependencies: string[]) => page(<PendingModule title={title} dependencies={dependencies} />);
 const page = (children: ReactNode) => <Suspense fallback={<div className="data-panel"><QueryState loading /></div>}>{children}</Suspense>;
 export const routers = [{ path: '/', name: 'workspace', element: <AppShell />, children: [
   { index: true, element: <Overview /> },
   { path: 'relacionamento', element: page(<RegistryPage key="contacts" resource="contacts" />) },
+  { path: 'relacionamento/:id', element: page(<ContactDetail />) },
   { path: 'oportunidades', element: page(<RegistryPage key="opportunities" resource="opportunities" />) },
   { path: 'casos', element: page(<RegistryPage key="cases" resource="cases" />) },
   { path: 'casos/:id', element: page(<CaseDetail />) },
+  { path: 'assistente-pericia', element: page(<PericiaAssistantPage />) },
   { path: 'tarefas', element: page(<RegistryPage key="tasks" resource="tasks" />) },
   { path: 'configuracoes', element: page(<SettingsPage />) },
   { path: 'agenda', element: page(<Agenda />) },
