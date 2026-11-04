@@ -49,9 +49,9 @@ export default function CasesImport() {
       }
       let created = 0;
       if (payload.length) {
-        const batch = await supabase.from('amcf_cases').insert(payload).select('id');
+        const batch = await supabase.from('amcf_cases').insert(payload as never).select('id');
         if (!batch.error) created = payload.length;
-        else for (const one of payload) { const single = await supabase.from('amcf_cases').insert(one).select('id'); if (single.error) problems.push(`${String(one.reference)}: ${errorMessage(single.error)}`); else created++; }
+        else for (const one of payload) { const single = await supabase.from('amcf_cases').insert(one as never).select('id'); if (single.error) problems.push(`${String(one.reference)}: ${errorMessage(single.error)}`); else created++; }
       }
       setReport(`Casos criados: ${created}. Linhas com problema: ${problems.length}.` + (problems.length ? '\n' + problems.join('\n') : ''));
       if (created) { toast.success(`${created} caso(s) importado(s).`); setText(''); await cache.invalidateQueries(); }

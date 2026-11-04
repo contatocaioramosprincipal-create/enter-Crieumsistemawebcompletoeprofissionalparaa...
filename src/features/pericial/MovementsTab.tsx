@@ -40,7 +40,7 @@ export default function MovementsTab({ caseId }: { caseId: string }) {
     } catch { setSyncReport('Não foi possível consultar o DataJud agora.'); } finally { setSyncing(false); }
   };
   const rows = (movements.data || []).filter(item => filter === 'todas' ? true : filter === 'nova' ? item.review_state === 'nova' : (item.classification === 'requer_acao' || item.classification === 'possivel_prazo' || item.classification === 'agenda') && item.review_state !== 'ignorada');
-  const add = () => mutate(() => supabase.from('amcf_movements').insert({ case_id: caseId, occurred_on: form.occurred_on, title: form.title.trim(), detail: form.detail.trim(), source: 'manual' }).select('id'), 'Movimentação registrada.').then(ok => { if (ok) setForm({ occurred_on: '', title: '', detail: '' }); });
+  const add = () => mutate(() => supabase.from('amcf_movements').insert({ case_id: caseId, occurred_on: form.occurred_on, title: form.title.trim(), detail: form.detail.trim(), source: 'manual' } as never) /* dedupe_hash é preenchido pelo gatilho amcf_movement_prepare */.select('id'), 'Movimentação registrada.').then(ok => { if (ok) setForm({ occurred_on: '', title: '', detail: '' }); });
   const review = (item: Movement, state: 'revisada' | 'ignorada') => mutate(() => supabase.from('amcf_movements').update({ review_state: state }).eq('id', item.id).select('id'), state === 'revisada' ? 'Movimentação marcada como revisada.' : 'Movimentação ignorada.');
   const importBulk = async () => {
     const parsed = parseManualImport(bulk);
@@ -52,7 +52,7 @@ export default function MovementsTab({ caseId }: { caseId: string }) {
     });
     const duplicated = parsed.items.length - fresh.length;
     if (!fresh.length) { setBulkReport(`Nada novo: ${duplicated} linha(s) já existiam.` + (parsed.errors.length ? '\n' + parsed.errors.join('\n') : '')); return; }
-    const ok = await mutate(() => supabase.from('amcf_movements').insert(fresh.map(item => ({ case_id: caseId, occurred_on: item.occurred_on, title: item.title, detail: item.detail, source: 'importacao' }))).select('id'), `${fresh.length} movimentação(ões) importada(s).`);
+    const ok = await mutate(() => supabase.from('amcf_movements').insert(fresh.map(item => ({ case_id: caseId, occurred_on: item.occurred_on, title: item.title, detail: item.detail, source: 'importacao' })) as never).select('id'), `${fresh.length} movimentação(ões) importada(s).`);
     if (ok) {
       setBulkReport(`Importadas: ${fresh.length}. Já existentes (ignoradas): ${duplicated}. Linhas com erro: ${parsed.errors.length}.` + (parsed.errors.length ? '\n' + parsed.errors.join('\n') : ''));
       setBulk('');
