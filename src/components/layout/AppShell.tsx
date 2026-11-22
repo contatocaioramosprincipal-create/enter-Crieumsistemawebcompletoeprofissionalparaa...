@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { NavLink, Outlet, useLocation } from 'react-router-dom';
-import { LayoutDashboard, UsersRound, GitBranch, BriefcaseBusiness, ListTodo, CalendarDays, Files, FileText, Wallet, ChartNoAxesCombined, Settings2, Menu, X, LogOut, ShieldCheck, ChevronDown, Bot } from 'lucide-react';
+import { LayoutDashboard, UsersRound, GitBranch, BriefcaseBusiness, ListTodo, CalendarDays, Files, FileText, Wallet, ChartNoAxesCombined, Settings2, Menu, X, LogOut, ShieldCheck, ChevronDown, Bot, BellRing } from 'lucide-react';
 import { useAuth } from '@/features/auth/auth-context';
 import AccessPage from '@/features/auth/AccessPage';
 import FloatingPericiaAssistant from '@/components/layout/FloatingPericiaAssistant';
@@ -10,6 +10,7 @@ import { toast } from 'sonner';
 
 const navigation = [
   { to: '/', label: 'Visão geral', icon: LayoutDashboard },
+  { to: '/central', label: 'Central operacional', icon: BellRing },
   { to: '/relacionamento', label: 'Relacionamento', icon: UsersRound },
   { to: '/oportunidades', label: 'Oportunidades', icon: GitBranch },
   { to: '/casos', label: 'Casos', icon: BriefcaseBusiness },
