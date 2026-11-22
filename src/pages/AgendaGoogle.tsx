@@ -94,7 +94,7 @@ export default function AgendaGoogle(){
     <div className="sm:col-span-2"><label className="field-label" htmlFor="google-event-summary">Título *</label><Input id="google-event-summary" required minLength={3} maxLength={180} value={form.summary} onChange={e=>setForm(v=>({...v,summary:e.target.value}))} disabled={busy}/></div>
     <div><label className="field-label" htmlFor="google-start">Início *</label><Input id="google-start" required type="datetime-local" value={form.starts} onChange={e=>setForm(v=>({...v,starts:e.target.value}))} disabled={busy}/></div>
     <div><label className="field-label" htmlFor="google-end">Término *</label><Input id="google-end" required type="datetime-local" value={form.ends} onChange={e=>setForm(v=>({...v,ends:e.target.value}))} disabled={busy}/></div>
-    <div className="sm:col-span-2"><label className="field-label">Processo (opcional)</label><LookupInput table="amcf_cases" value={form.caseId} onChange={next=>setForm(v=>({...v,caseId:next}))} disabled={busy}/></div>
+    <div className="sm:col-span-2"><label className="field-label">Processo (opcional)</label><LookupInput table="amcf_cases" label="Processo relacionado" value={form.caseId} onChange={next=>setForm(v=>({...v,caseId:next}))} disabled={busy}/></div>
     <div className="sm:col-span-2 flex flex-wrap gap-2"><Button disabled={busy}><Save size={16}/>{form.id?'Salvar alterações':'Criar compromisso'}</Button>{form.id&&<Button type="button" variant="outline" onClick={()=>setForm(blank)}>Cancelar edição</Button>}</div>
    </form>
    {message&&<p role="status" className="mt-4 rounded-md border p-3 text-xs">{message}</p>}
