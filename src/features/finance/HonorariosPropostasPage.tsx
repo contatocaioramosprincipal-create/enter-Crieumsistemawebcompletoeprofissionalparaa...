@@ -143,7 +143,7 @@ export default function HonorariosPropostasPage() {
       <div className="flex items-center gap-2"><BookOpen size={17}/><h2 className="text-sm font-semibold">Propostas cadastradas</h2></div>
       <QueryState loading={proposals.isPending} error={proposals.isError} empty={!proposals.isPending && !proposals.isError && !proposals.data?.length} title="Nenhuma proposta visível" onRetry={() => void proposals.refetch()} />
       <div className="mt-4 space-y-2">{proposals.data?.map(p => <div key={p.id} className="flex flex-wrap items-center justify-between gap-3 rounded-md border p-4">
-        <div><strong className="text-sm">{p.title}</strong><p className="mt-1 text-xs text-muted-foreground">Status: {statusLabels[p.status] || p.status} · {dateLabel(p.created_at)} · Valor {currency(p.amount_cents)}</p></div>
+        <div><strong className="text-sm">{p.title}</strong><p className="mt-1 text-xs text-muted-foreground">Processo: {p.linked_case?.cnj_number || p.linked_case?.reference || 'Não identificado'} · Status: {statusLabels[p.status] || p.status} · {dateLabel(p.created_at)} · Valor {currency(p.amount_cents)}</p></div>
         {p.case_id && <Button asChild variant="outline" size="sm"><Link to={`/casos/${p.case_id}`}><ArrowUpRight size={14}/>Abrir processo</Link></Button>}
       </div>)}</div>
     </section>
