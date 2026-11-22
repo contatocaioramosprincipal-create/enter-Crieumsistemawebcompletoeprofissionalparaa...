@@ -12,6 +12,10 @@ export default function IntegracoesPage(){
  const {access}=useAuth(),cache=useQueryClient();
  const [params]=useSearchParams();
  const [busy,setBusy]=useState(false),[message,setMessage]=useState('');
+ const digest=useQuery({queryKey:['amcf-google-digest',access?.member?.id],enabled:!!access?.member?.id,queryFn:async()=>{
+  const r=await supabase.from('amcf_google_digest_settings').select('enabled,last_sent_on').eq('owner_id',access!.member!.id).maybeSingle();
+  if(r.error)throw r.error;return r.data;
+ }});
  const google=useQuery({queryKey:['amcf-google-oauth-status'],queryFn:async()=>{
   const r=await supabase.functions.invoke('amcf-google-oauth',{body:{action:'status'}});
   if(r.error||!r.data?.ok)throw new Error(r.data?.error||'Integração Google indisponível');
@@ -30,6 +34,19 @@ export default function IntegracoesPage(){
     }
     setMessage('Conta Google desconectada.');await cache.invalidateQueries({queryKey:['amcf-google-oauth-status']});
   }catch(error){setMessage(error instanceof Error?error.message:'Não foi possível concluir a operação.');}
+  finally{setBusy(false);}
+ };
+ const toggleDigest=async()=>{
+  const owner=access?.member?.id;
+  if(!owner||!google.data?.connected)return;
+  setBusy(true);setMessage('');
+  try{
+   const result=await supabase.from('amcf_google_digest_settings')
+     .upsert({owner_id:owner,enabled:!digest.data?.enabled},{onConflict:'owner_id'}).select('owner_id');
+   if(result.error||!result.data?.length)throw result.error||new Error('Sem permissão');
+   setMessage(digest.data?.enabled?'Resumo diário desativado.':'Resumo diário ativado para seu próprio Gmail. Não são enviados dados clínicos.');
+   await cache.invalidateQueries({queryKey:['amcf-google-digest',owner]});
+  }catch(error){setMessage(error instanceof Error?error.message:'Falha ao configurar resumo');}
   finally{setBusy(false);}
  };
  const sync=async(target:'calendar'|'gmail')=>{
@@ -66,6 +83,10 @@ export default function IntegracoesPage(){
    {google.data&&!google.data.configured&&<p className="mt-4 text-xs text-warning">O projeto ainda precisa do cliente OAuth próprio do consultório. Nenhuma conta pessoal será conectada automaticamente.</p>}
    {message&&<p role="status" className="mt-4 rounded-md border p-3 text-xs">{message}</p>}
   </section>
+  <section className="data-panel p-5"><div className="flex flex-wrap items-start justify-between gap-3">
+   <div><h2 className="text-sm font-semibold">Resumo diário automático por e-mail</h2><p className="mt-2 max-w-xl text-xs leading-6 text-muted-foreground">Às 9h (horário de Brasília), o CRM pode enviar à própria conta Google conectada uma mensagem com quantidades de tarefas e avisos pendentes, sem nomes de pacientes, números processuais ou documentos. Este serviço é opcional.</p></div>
+   <Button type="button" variant={digest.data?.enabled?'outline':'default'} disabled={busy||!google.data?.connected} onClick={()=>void toggleDigest()}>{digest.data?.enabled?'Desativar resumo diário':'Ativar resumo diário'}</Button>
+  </div></section>
   <div className="grid gap-4 md:grid-cols-2">
    <section className="data-panel p-5"><CalendarDays className="mb-3 text-primary"/><h2 className="text-sm font-semibold">Google Calendar</h2><p className="mt-2 text-xs leading-6 text-muted-foreground">Crie, edite e consulte compromissos do AMCF na agenda Google; alterações externas em eventos criados pelo sistema voltam ao CRM, sem mudar automaticamente prazos judiciais.</p><Button asChild variant="outline" className="mt-4"><Link to="/agenda-google">Abrir agenda conectada</Link></Button></section>
    <section className="data-panel p-5"><Mail className="mb-3 text-primary"/><h2 className="text-sm font-semibold">Gmail</h2><p className="mt-2 text-xs leading-6 text-muted-foreground">Mensagens com número CNJ visível são associadas ao processo. O envio de cada e-mail exige confirmação expressa do usuário; não existe disparo automático de conteúdo sensível.</p><Button asChild variant="outline" className="mt-4"><Link to="/casos">Abrir processos</Link></Button></section>
