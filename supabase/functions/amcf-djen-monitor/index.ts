@@ -87,7 +87,7 @@ Deno.serve(async(req:Request)=>{
      if(digest.length<8)continue;
      const exists=await svc.from("amcf_djen_publications").select("id").eq("case_id",c.id).eq("external_hash",digest).maybeSingle();
      if(exists.data||exists.error)continue;
-     const official="https://comunica.pje.jus.br/";
+     const official="https://comunicaapi.pje.jus.br/api/v1/comunicacao/"+encodeURIComponent(digest)+"/certidao";
      const ins=await svc.from("amcf_djen_publications").insert({
        case_id:c.id,external_hash:digest,
        available_on:dateOnly(e.dataDisponibilizacao||e.datadisponibilizacao),
