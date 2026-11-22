@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { BadgeCheck, Copy, FileDown, FilePlus, Printer, Save } from 'lucide-react';
+import { BadgeCheck, Copy, FileDown, FilePlus, Printer, Save, Sparkles } from 'lucide-react';
 import { downloadWord, printAsPdf } from './exportDoc';
 import { diffLines } from './textDiff';
 import { supabase } from '@/integrations/supabase/client';
@@ -26,6 +26,10 @@ export default function ReportsTab({ caseId, header }: { caseId: string; header:
   const [body, setBody] = useState<Record<string, string>>({});
   const [note, setNote] = useState('');
   const [compareId, setCompareId] = useState('');
+  const [aiBusy, setAiBusy] = useState(false);
+  const [aiApproval, setAiApproval] = useState(false);
+  const [aiProvider, setAiProvider] = useState(false);
+  const [aiResult, setAiResult] = useState('');
   const templates = useQuery({ queryKey: ['report-templates'], queryFn: async () => fail<Template[]>(supabase.from('amcf_report_templates').select('*').order('name')) });
   const reports = useQuery({ queryKey: ['case-reports', caseId], queryFn: async () => fail<Report[]>(supabase.from('amcf_reports').select('*').eq('case_id', caseId).order('created_at', { ascending: false })) });
   const readiness = useQuery({ queryKey: ['case-readiness', caseId], queryFn: async () => caseReadiness(caseId) });
@@ -75,6 +79,20 @@ export default function ReportsTab({ caseId, header }: { caseId: string; header:
     const footer = approved ? `Versão ${current.version} aprovada pelo médico responsável.` : `RASCUNHO — versão ${current.version}, não aprovado. Revisão e assinatura do médico responsável pendentes.`;
     (kind === 'word' ? downloadWord : printAsPdf)(current.title, text, footer);
   };
+  const requestAIDraft = async () => {
+    if (!aiApproval || !aiProvider) return;
+    setAiBusy(true); setAiResult('');
+    try {
+      const { data, error } = await supabase.functions.invoke('amcf-report-draft', {
+        body: { caseId, ackMedicalReview: true, ackExternalAI: true }
+      });
+      if (error || data?.ok !== true) throw new Error(data?.error || 'Não foi possível criar a minuta com IA.');
+      setAiResult('Minuta criada como rascunho v' + data.version + '. Confira fontes, lacunas e todos os achados antes de enviar para revisão médica.');
+      setSelected(String(data.reportId)); setAiApproval(false); setAiProvider(false);
+      await Promise.all([reports.refetch(),readiness.refetch()]);
+    } catch (error) { setAiResult(error instanceof Error ? error.message : 'Não foi possível gerar a minuta.'); }
+    finally { setAiBusy(false); }
+  };
   const pending = (text.match(/\[a preencher pelo perito\]/gi) || []).length;
   return <div className="space-y-6">
     <Section title="Laudos, petições e esclarecimentos" description="O texto é montado com dados reais do processo; o que faltar fica marcado “[a preencher pelo perito]”. Nenhuma conclusão é gerada automaticamente e a aprovação é exclusiva do médico.">
@@ -111,6 +129,15 @@ export default function ReportsTab({ caseId, header }: { caseId: string; header:
         </div>}
         {locked && <p className="text-xs text-muted-foreground">Versão aprovada: imutável. Crie uma nova versão para alterar.</p>}
       </div>}
+    </Section>
+    <Section title="Minuta médico-pericial assistida por IA" description="Estrutura o rascunho a partir de quesitos, achados e páginas documentais extraídas do processo. Não atribui conclusão técnica e não aprova laudos.">
+      <div className="notice mb-4"><Sparkles size={18} className="shrink-0" /><p>As fontes clínicas necessárias serão enviadas ao provedor de IA já configurado para este CRM. A minuta será salva em versão própria, com conclusão e assinatura reservadas ao Dr. Adilson.</p></div>
+      <div className="space-y-3 text-sm">
+        <label className="flex items-start gap-3"><input type="checkbox" checked={aiProvider} onChange={event=>setAiProvider(event.target.checked)} />Autorizo o processamento do conteúdo autorizado deste processo pelo provedor externo de IA.</label>
+        <label className="flex items-start gap-3"><input type="checkbox" checked={aiApproval} onChange={event=>setAiApproval(event.target.checked)} />Estou ciente de que é somente um rascunho e exige conferência documental e revisão e aprovação médica.</label>
+      </div>
+      <div className="mt-4"><Button type="button" variant="outline" disabled={aiBusy || busy || !aiApproval || !aiProvider} onClick={()=>void requestAIDraft()}><Sparkles size={16}/>{aiBusy?'Gerando minuta…':'Gerar minuta com IA e fontes'}</Button></div>
+      {aiResult&&<p role="status" className="mt-4 whitespace-pre-wrap rounded border p-3 text-xs">{aiResult}</p>}
     </Section>
     <Section title="Novo documento">
       <SubSection title="A partir de um modelo">
