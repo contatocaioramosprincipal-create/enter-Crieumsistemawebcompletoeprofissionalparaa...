@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { Search, Upload, Download, Trash2, ChevronLeft, ChevronRight, FileText } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase, SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY } from '@/integrations/supabase/client';
@@ -26,16 +26,19 @@ interface DocumentRow { id: string; title: string; category: string; storage_pat
 
 export default function DocumentsPage() {
   const { access } = useAuth();
+  const [searchParams] = useSearchParams();
+  const presetCaseId = searchParams.get('caso') || '';
   const cache = useQueryClient();
   const [search, setSearch] = useState(''); const [term, setTerm] = useState('');
   const [category, setCategory] = useState(''); const [page, setPage] = useState(0);
-  const [open, setOpen] = useState(false); const [busy, setBusy] = useState(false); const [error, setError] = useState('');
-  const [progress, setProgress] = useState(0); const [caseId, setCaseId] = useState(''); const [title, setTitle] = useState('');
+  const [open, setOpen] = useState(!!presetCaseId); const [busy, setBusy] = useState(false); const [error, setError] = useState('');
+  const [progress, setProgress] = useState(0); const [caseId, setCaseId] = useState(presetCaseId); const [title, setTitle] = useState('');
   const [docCategory, setDocCategory] = useState('outro'); const [docDate, setDocDate] = useState(todayISO()); const [files, setFiles] = useState<File[]>([]);
-  const documents = useQuery({ queryKey: ['documents', term, category, page], queryFn: async () => {
+  const documents = useQuery({ queryKey: ['documents', term, category, page, presetCaseId], queryFn: async () => {
     let query = supabase.from('amcf_documents').select('id,title,category,storage_path,document_date,file_name,mime_type,size_bytes,uploaded_by,created_at, linked_case:amcf_cases(reference,title)', { count: 'exact' }).order('created_at', { ascending: false }).range(page * 20, page * 20 + 19);
     if (term) query = query.ilike('title', `%${term.replace(/[%_\\]/g, '')}%`);
     if (category) query = query.eq('category', category);
+    if (presetCaseId) query = query.eq('case_id', presetCaseId);
     const result = await query; if (result.error) throw result.error;
     return { rows: result.data as unknown as DocumentRow[], count: result.count || 0 };
   } });
