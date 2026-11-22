@@ -39,7 +39,7 @@ export default function Agenda() {
   const loading = tasks.isPending || cases.isPending || overdue.isPending;
   const move = (direction: -1 | 1) => setAnchor(period === 'week' ? addWeeks(anchor, direction) : addMonths(anchor, direction));
   const exportCalendar = () => {
-    const escapeValue = (value: string) => value.replace(/\\/g,'\\\\').replace(/\r?\n/g,'\\n').replace(/[,;]/g,'\\  const move = (direction: -1 | 1) => setAnchor(period === 'week' ? addWeeks(anchor, direction) : addMonths(anchor, direction));');
+    const escapeValue = (value: string) => value.replace(/\\/g,'\\\\').replace(/\r?\n/g,'\\n').replace(/[,;]/g,'\\$&');
     const next = (date:string) => { const d=new Date(date+'T12:00:00Z');d.setUTCDate(d.getUTCDate()+1);return d.toISOString().slice(0,10).replace(/-/g,''); };
     const lines=['BEGIN:VCALENDAR','VERSION:2.0','PRODID:-//AMCF//Agenda administrativa//PT-BR','CALSCALE:GREGORIAN','METHOD:PUBLISH'];
     for(const [date,items] of days) for(const item of items) {
