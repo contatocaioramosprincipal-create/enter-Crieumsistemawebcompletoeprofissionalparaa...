@@ -10,6 +10,7 @@ const PendingModule = lazy(() => import('@/pages/PendingModule'));
 const Agenda = lazy(() => import('@/pages/Agenda'));
 const DocumentsPage = lazy(() => import('@/features/documents/DocumentsPage'));
 const FinancePage = lazy(() => import('@/features/finance/FinancePage'));
+const HonorariosPropostasPage = lazy(() => import('@/features/finance/HonorariosPropostasPage'));
 const ReportsPage = lazy(() => import('@/pages/ReportsPage'));
 const PericiaAssistantPage = lazy(() => import('@/features/assistant/PericiaAssistantPage'));
 const pending = (title: string, dependencies: string[]) => page(<PendingModule title={title} dependencies={dependencies} />);
@@ -26,7 +27,7 @@ export const routers = [{ path: '/', name: 'workspace', element: <AppShell />, c
   { path: 'configuracoes', element: page(<SettingsPage />) },
   { path: 'agenda', element: page(<Agenda />) },
   { path: 'documentos', element: page(<DocumentsPage />) },
-  { path: 'propostas', element: page(<RegistryPage key="proposals" resource="proposals" />) },
+  { path: 'propostas', element: page(<HonorariosPropostasPage />) },
   { path: 'financeiro', element: page(<FinancePage />) },
   { path: 'relatorios', element: page(<ReportsPage />) },
   { path: '*', element: pending('Página não encontrada', ['Confira o endereço ou utilize a navegação principal.']) },
