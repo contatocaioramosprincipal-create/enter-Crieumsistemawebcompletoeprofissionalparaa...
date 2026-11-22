@@ -5123,6 +5123,151 @@ export type Database = {
         }
         Relationships: []
       }
+      amcf_appointment_search_terms: {
+        Row: {
+          id: string
+          phrase: string
+          active: boolean
+          created_by: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          phrase: string
+          active?: boolean
+          created_by?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          phrase?: string
+          active?: boolean
+          created_by?: string | null
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "amcf_appointment_search_terms_created_by_fkey"
+            columns: ["created_by"]
+            referencedRelation: "amcf_members"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      amcf_appointment_leads: {
+        Row: {
+          id: string
+          external_hash: string
+          matched_term: string
+          cnj_number: string | null
+          tribunal: string
+          court_unit: string
+          communication_type: string
+          available_on: string | null
+          match_kind: string
+          excerpt: string
+          source_url: string
+          status: string
+          linked_case_id: string | null
+          reviewed_by: string | null
+          reviewed_at: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          external_hash: string
+          matched_term: string
+          cnj_number?: string | null
+          tribunal?: string
+          court_unit?: string
+          communication_type?: string
+          available_on?: string | null
+          match_kind: string
+          excerpt?: string
+          source_url: string
+          status?: string
+          linked_case_id?: string | null
+          reviewed_by?: string | null
+          reviewed_at?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          external_hash?: string
+          matched_term?: string
+          cnj_number?: string | null
+          tribunal?: string
+          court_unit?: string
+          communication_type?: string
+          available_on?: string | null
+          match_kind?: string
+          excerpt?: string
+          source_url?: string
+          status?: string
+          linked_case_id?: string | null
+          reviewed_by?: string | null
+          reviewed_at?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "amcf_appointment_leads_linked_case_id_fkey"
+            columns: ["linked_case_id"]
+            referencedRelation: "amcf_cases"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "amcf_appointment_leads_reviewed_by_fkey"
+            columns: ["reviewed_by"]
+            referencedRelation: "amcf_members"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      amcf_appointment_search_runs: {
+        Row: {
+          id: string
+          matched_term: string
+          started_at: string
+          finished_at: string | null
+          date_from: string | null
+          date_to: string | null
+          status: string
+          found: number
+          inserted: number
+          error_note: string | null
+        }
+        Insert: {
+          id?: string
+          matched_term: string
+          started_at?: string
+          finished_at?: string | null
+          date_from?: string | null
+          date_to?: string | null
+          status: string
+          found?: number
+          inserted?: number
+          error_note?: string | null
+        }
+        Update: {
+          id?: string
+          matched_term?: string
+          started_at?: string
+          finished_at?: string | null
+          date_from?: string | null
+          date_to?: string | null
+          status?: string
+          found?: number
+          inserted?: number
+          error_note?: string | null
+        }
+        Relationships: [
+
+        ]
+      }
       amcf_djen_publications: {
         Row: {
           id: string

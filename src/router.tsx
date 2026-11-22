@@ -10,6 +10,7 @@ const PendingModule = lazy(() => import('@/pages/PendingModule'));
 const Agenda = lazy(() => import('@/pages/Agenda'));
 const OperationalCenter = lazy(() => import('@/pages/OperationalCenter'));
 const GlobalSearch = lazy(() => import('@/pages/GlobalSearch'));
+const RadarNomeacoesPage = lazy(() => import('@/pages/RadarNomeacoesPage'));
 const IntegracoesPage = lazy(() => import('@/pages/IntegracoesPage'));
 const AgendaGoogle = lazy(() => import('@/pages/AgendaGoogle'));
 const DocumentsPage = lazy(() => import('@/features/documents/DocumentsPage'));
@@ -34,6 +35,7 @@ export const routers = [{ path: '/', name: 'workspace', element: <AppShell />, c
   { path: 'integracoes', element: page(<IntegracoesPage />) },
   { path: 'central', element: page(<OperationalCenter />) },
   { path: 'busca', element: page(<GlobalSearch />) },
+  { path: 'nomeacoes', element: page(<RadarNomeacoesPage />) },
   { path: 'documentos', element: page(<DocumentsPage />) },
   { path: 'propostas', element: page(<HonorariosPropostasPage />) },
   { path: 'financeiro', element: page(<FinancePage />) },

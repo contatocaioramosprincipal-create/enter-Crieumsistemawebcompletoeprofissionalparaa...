@@ -15,7 +15,7 @@ import { cnjError, formatCnj } from '@/features/pericial/pericial';
 const newReference = () => `CASO-${todayISO().replace(/-/g, '')}-${String(Math.floor(Math.random() * 9000) + 1000)}`;
 
 // Cria contato (ou usa um existente) e o caso em uma única tela, e abre o caso para anexar documentos.
-export default function NewCaseDialog({ onClose, presetContactId = '' }: { onClose: () => void; presetContactId?: string }) {
+export default function NewCaseDialog({ onClose, presetContactId = '', presetCnj = '', presetOriginLeadId = '' }: { onClose: () => void; presetContactId?: string; presetCnj?: string; presetOriginLeadId?: string }) {
   const { access } = useAuth();
   const navigate = useNavigate();
   const cache = useQueryClient();
@@ -28,7 +28,7 @@ export default function NewCaseDialog({ onClose, presetContactId = '' }: { onClo
   const [title, setTitle] = useState('');
   const [service, setService] = useState('Perícia médica');
   const [dueOn, setDueOn] = useState('');
-  const [cnj, setCnj] = useState('');
+  const [cnj, setCnj] = useState(presetCnj ? formatCnj(presetCnj) : '');
   const [assunto, setAssunto] = useState('');
   const [autor, setAutor] = useState('');
   const [reu, setReu] = useState('');
@@ -51,6 +51,11 @@ export default function NewCaseDialog({ onClose, presetContactId = '' }: { onClo
     if (mode === 'new' && contactName.trim().length < 2) { setError('Informe o nome do contato.'); return; }
     setBusy(true);
     try {
+      if (cnj.trim()) {
+        const duplicate = await supabase.from('amcf_cases').select('id').eq('cnj_number',formatCnj(cnj)).maybeSingle();
+        if (duplicate.error) throw duplicate.error;
+        if (duplicate.data) throw new Error('Este número CNJ já está cadastrado. Abra o processo existente em vez de criar outro.');
+      }
       let owner = contactId;
       if (mode === 'new') {
         const created = await supabase.from('amcf_contacts').insert({ name: contactName.trim(), kind, email: email.trim() ? email.trim().toLowerCase() : null, phone: phone.replace(/\D/g, '') || null, responsible_id: memberId }).select('id');
@@ -62,8 +67,21 @@ export default function NewCaseDialog({ onClose, presetContactId = '' }: { onClo
       if (made.error) throw made.error;
       const caseId = String(made.data?.[0]?.id ?? '');
       if (!caseId) throw new Error('O caso não foi salvo. Sua permissão pode ter sido alterada.');
+      let linked = !presetOriginLeadId;
+      if (presetOriginLeadId && cnj.trim()) {
+        const lead = await supabase.from('amcf_appointment_leads')
+          .select('id,cnj_number,status').eq('id',presetOriginLeadId).maybeSingle();
+        if (!lead.error && lead.data && lead.data.status === 'confirmada' &&
+          lead.data.cnj_number?.replace(/\D/g,'') === cnj.replace(/\D/g,'')) {
+          const result = await supabase.from('amcf_appointment_leads')
+            .update({linked_case_id:caseId,status:'vinculada',reviewed_by:memberId,reviewed_at:new Date().toISOString()})
+            .eq('id',presetOriginLeadId).select('id');
+          linked = !result.error && !!result.data?.length;
+        }
+      }
       await cache.invalidateQueries();
-      toast.success('Caso criado. Agora você já pode anexar documentos.');
+      if (linked) toast.success('Caso criado e vinculado ao CRM.');
+      else toast.warning('Caso criado. Confira o vínculo com a publicação no Radar de Nomeações.');
       onClose();
       navigate(`/casos/${caseId}`);
     } catch (failure) { setError(errorMessage(failure)); }

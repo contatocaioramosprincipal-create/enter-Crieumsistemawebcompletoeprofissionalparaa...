@@ -112,7 +112,7 @@ export default function OperationalCenter() {
         <div className="min-w-0 flex-1"><div className="flex items-center gap-2"><span className="status-pill status-neutral">{reviewKinds[n.kind]||n.kind}</span><span className="text-[11px] text-muted-foreground">{dateLabel(n.created_at)}</span></div>
           <strong className="mt-2 block text-sm">{n.title}</strong><p className="mt-1 text-xs leading-5 text-muted-foreground">{n.body}</p>
         </div>
-        <div className="flex gap-2">{n.case_id && <Button asChild size="sm" variant="outline"><Link to={'/casos/'+n.case_id}><ArrowUpRight size={14}/>Processo</Link></Button>}
+        <div className="flex gap-2">{n.case_id && <Button asChild size="sm" variant="outline"><Link to={'/casos/'+n.case_id}><ArrowUpRight size={14}/>Processo</Link></Button>}{n.resource==='nomeacao' && <Button asChild size="sm" variant="outline"><Link to="/nomeacoes"><ArrowUpRight size={14}/>Radar de Nomeações</Link></Button>}
           {!n.read_at && <Button size="sm" variant="outline" disabled={busy} onClick={()=>void read([n.id])}>Lido</Button>}
         </div>
       </div>)}</div>

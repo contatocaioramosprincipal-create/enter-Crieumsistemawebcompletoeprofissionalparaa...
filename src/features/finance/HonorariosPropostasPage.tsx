@@ -87,7 +87,7 @@ export default function HonorariosPropostasPage() {
   };
 
   const setProposalStatus = async (id: string, status: string) => {
-    if (!canManage || !Object.hasOwn(statusLabels, status)) return;
+    if (!canManage || !Object.prototype.hasOwnProperty.call(statusLabels, status)) return;
     setStatusBusy(id);
     try {
       const result = await supabase.from('amcf_proposals').update({ status }).eq('id', id).select('id');
