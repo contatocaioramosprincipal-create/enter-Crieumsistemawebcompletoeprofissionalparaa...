@@ -33,7 +33,10 @@ export default function RegistryPage({ resource, headerSlot }: { resource: Resou
   const stages = useQuery({ queryKey: ['stages', definition.stageTable], enabled: !!definition.stageTable, queryFn: async () => { const result = await supabase.from(definition.stageTable!).select('*').order('position'); if (result.error) throw result.error; return result.data; } });
   const query = useQuery({ queryKey: ['registry', resource, term, page, ascending, stage], queryFn: async () => {
     let q = supabase.from(definition.table).select(definition.select, { count: 'exact' }).order('created_at', { ascending }).order('id').range(page * 20, page * 20 + 19);
-    if (term) q = q.ilike(definition.search, `%${term.replace(/[%_\\]/g, '')}%`);
+    if (term) {
+      const clean = term.replace(/[%_\\,()]/g, '');
+      q = resource === 'cases' ? q.or(`title.ilike.%${clean}%,reference.ilike.%${clean}%,cnj_number.ilike.%${clean}%,claimant.ilike.%${clean}%,defendant.ilike.%${clean}%,court_unit.ilike.%${clean}%,claim_summary.ilike.%${clean}%`) : q.ilike(definition.search, `%${clean}%`);
+    }
     if (stage) q = q.filter(definition.stageTable ? 'stage_id' : 'status', 'eq', stage);
     if (resource === 'contacts' || resource === 'cases') q = q.is('archived_at', null);
     const result = await q; if (result.error) throw result.error;
