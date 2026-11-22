@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
-import { LayoutDashboard, UsersRound, GitBranch, BriefcaseBusiness, ListTodo, CalendarDays, Files, FileText, Wallet, ChartNoAxesCombined, Settings2, Menu, X, LogOut, ShieldCheck, ChevronDown, Bot, BellRing, Search } from 'lucide-react';
+import { LayoutDashboard, UsersRound, GitBranch, BriefcaseBusiness, ListTodo, CalendarDays, Files, FileText, Wallet, ChartNoAxesCombined, Settings2, Menu, X, LogOut, ShieldCheck, ChevronDown, Bot, BellRing, Search, PlugZap } from 'lucide-react';
 import { useAuth } from '@/features/auth/auth-context';
 import AccessPage from '@/features/auth/AccessPage';
 import FloatingPericiaAssistant from '@/components/layout/FloatingPericiaAssistant';
@@ -18,6 +18,8 @@ const navigation = [
   { to: '/assistente-pericia', label: 'Assistente de Perícia', icon: Bot },
   { to: '/tarefas', label: 'Tarefas e prazos', icon: ListTodo },
   { to: '/agenda', label: 'Agenda', icon: CalendarDays },
+  { to: '/agenda-google', label: 'Agenda Google', icon: CalendarDays },
+  { to: '/integracoes', label: 'Integrações', icon: PlugZap },
   { to: '/documentos', label: 'Documentos', icon: Files },
   { to: '/propostas', label: 'Propostas de honorários', icon: FileText },
   { to: '/financeiro', label: 'Financeiro', icon: Wallet, financial: true },
