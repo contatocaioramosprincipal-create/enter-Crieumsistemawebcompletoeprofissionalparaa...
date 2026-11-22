@@ -5206,6 +5206,34 @@ export type Database = {
           },
         ]
       }
+      amcf_google_digest_settings: {
+        Row: {
+          owner_id: string
+          enabled: boolean
+          last_sent_on: string | null
+          updated_at: string
+        }
+        Insert: {
+          owner_id: string
+          enabled?: boolean
+          last_sent_on?: string | null
+          updated_at?: string
+        }
+        Update: {
+          owner_id?: string
+          enabled?: boolean
+          last_sent_on?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "amcf_google_digest_settings_owner_id_fkey"
+            columns: ["owner_id"]
+            referencedRelation: "amcf_members"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       amcf_google_connections: {
         Row: {
           owner_id: string
