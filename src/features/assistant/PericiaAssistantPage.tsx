@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type ChangeEvent, type FormEvent } from 'react';
 import { Bot, Send, ShieldCheck, LoaderCircle, MessageCircle, Paperclip, X } from 'lucide-react';
+import { useSearchParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/features/auth/auth-context';
@@ -14,9 +15,11 @@ const STAGING_BUCKET = 'amcf-ai-staging';
 const newConversation = () => crypto.randomUUID();
 export default function PericiaAssistantPage({ compact = false }: { compact?: boolean }) {
   const { session } = useAuth();
+  const [searchParams] = useSearchParams();
+  const requestedCaseId = compact ? '' : (searchParams.get('caso') || '');
   const [conversationId, setConversationId] = useState(newConversation);
   const [cases, setCases] = useState<CaseOption[]>([]);
-  const [caseId, setCaseId] = useState('');
+  const [caseId, setCaseId] = useState(requestedCaseId);
   const [available, setAvailable] = useState(false);
   const [status, setStatus] = useState('Verificando disponibilidade da integração…');
   const [input, setInput] = useState('');
@@ -44,7 +47,11 @@ export default function PericiaAssistantPage({ compact = false }: { compact?: bo
       supabase.from('amcf_cases').select('id,title,reference').order('opened_on', { ascending: false }).limit(60),
     ]).then(([integration, authorizedCases]) => {
       if (cancelled) return;
-      if (!authorizedCases.error) setCases((authorizedCases.data || []) as CaseOption[]);
+      if (!authorizedCases.error) {
+        const visible=(authorizedCases.data||[]) as CaseOption[];
+        setCases(visible);
+        if (requestedCaseId && !visible.some(c=>c.id===requestedCaseId)) setCaseId('');
+      }
       if (integration.error || !integration.data?.ready) {
         setAvailable(false);
         setStatus(integration.data?.error || 'O assistente ainda não foi ligado no servidor.');
@@ -57,7 +64,7 @@ export default function PericiaAssistantPage({ compact = false }: { compact?: bo
       if (!cancelled) setStatus('Não foi possível verificar a integração. Atualize a página.');
     });
     return () => { cancelled = true; };
-  }, [session?.user.id]);
+  }, [session?.user.id, requestedCaseId]);
   const send = async (event: FormEvent) => {
     event.preventDefault();
     const typed = input.trim();
