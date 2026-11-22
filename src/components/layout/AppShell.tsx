@@ -17,7 +17,7 @@ const navigation = [
   { to: '/tarefas', label: 'Tarefas e prazos', icon: ListTodo },
   { to: '/agenda', label: 'Agenda', icon: CalendarDays },
   { to: '/documentos', label: 'Documentos', icon: Files },
-  { to: '/propostas', label: 'Propostas', icon: FileText, financial: true },
+  { to: '/propostas', label: 'Propostas de honorários', icon: FileText },
   { to: '/financeiro', label: 'Financeiro', icon: Wallet, financial: true },
   { to: '/relatorios', label: 'Relatórios', icon: ChartNoAxesCombined },
   { to: '/configuracoes', label: 'Equipe e configurações', icon: Settings2 },
