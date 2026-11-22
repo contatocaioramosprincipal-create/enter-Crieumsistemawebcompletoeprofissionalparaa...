@@ -42,7 +42,7 @@ create table if not exists public.amcf_google_calendar_events(
 create unique index if not exists google_calendar_event_external_unique on public.amcf_google_calendar_events(owner_id,google_event_id) where google_event_id is not null;
 create index if not exists google_calendar_events_owner_dates_idx on public.amcf_google_calendar_events(owner_id,starts_at);
 alter table public.amcf_google_calendar_events enable row level security;
-grant select,insert,update to authenticated;
+grant select,insert,update on public.amcf_google_calendar_events to authenticated;
 drop policy if exists google_calendar_events_own_read on public.amcf_google_calendar_events;
 create policy google_calendar_events_own_read on public.amcf_google_calendar_events for select to authenticated using(owner_id=auth.uid() and (case_id is null or public.amcf_can_case(case_id)));
 drop policy if exists google_calendar_events_own_insert on public.amcf_google_calendar_events;
