@@ -9,6 +9,7 @@ const SettingsPage = lazy(() => import('@/features/team/SettingsPage'));
 const PendingModule = lazy(() => import('@/pages/PendingModule'));
 const Agenda = lazy(() => import('@/pages/Agenda'));
 const OperationalCenter = lazy(() => import('@/pages/OperationalCenter'));
+const GlobalSearch = lazy(() => import('@/pages/GlobalSearch'));
 const DocumentsPage = lazy(() => import('@/features/documents/DocumentsPage'));
 const FinancePage = lazy(() => import('@/features/finance/FinancePage'));
 const HonorariosPropostasPage = lazy(() => import('@/features/finance/HonorariosPropostasPage'));
@@ -28,6 +29,7 @@ export const routers = [{ path: '/', name: 'workspace', element: <AppShell />, c
   { path: 'configuracoes', element: page(<SettingsPage />) },
   { path: 'agenda', element: page(<Agenda />) },
   { path: 'central', element: page(<OperationalCenter />) },
+  { path: 'busca', element: page(<GlobalSearch />) },
   { path: 'documentos', element: page(<DocumentsPage />) },
   { path: 'propostas', element: page(<HonorariosPropostasPage />) },
   { path: 'financeiro', element: page(<FinancePage />) },
