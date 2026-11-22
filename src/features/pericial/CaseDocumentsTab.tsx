@@ -13,7 +13,7 @@ export default function CaseDocumentsTab({ caseId }: { caseId: string }) {
   return <Section title="Documentos, exames e prontuários do processo" description="Lista o que está guardado no armazenamento privado para este processo, com a situação da extração de texto. Laudos lidos pelo Assistente com a opção “Salvar no processo” aparecem aqui.">
     {docs.isPending && <p className="text-xs text-muted-foreground">Carregando documentos…</p>}
     {docs.isError && <p role="alert" className="text-xs text-destructive">Não foi possível carregar os documentos.</p>}
-    {!docs.isPending && !docs.isError && !docs.data?.length && <Empty title="Nenhum documento neste processo" description="Envie pela aba Documentos do menu, ou anexe um laudo no Assistente Virtual marcando “Salvar no processo”." />}
+    {!docs.isPending && !docs.isError && !docs.data?.length && <Empty title="Nenhum documento neste processo" description="Envie documentos diretamente deste processo; quesitos, petição inicial, relatórios médicos, termo de aceite, laudo pericial e respostas a e-mails devem receber título e categoria apropriados." />}
     <ul className="space-y-3">{docs.data?.map(doc => <li key={doc.id} className="rounded-md border px-4 py-3">
       <div className="flex flex-wrap items-center gap-3">
         <FileText size={15} className="text-muted-foreground" />
@@ -24,6 +24,6 @@ export default function CaseDocumentsTab({ caseId }: { caseId: string }) {
       </div>
       <p className="mt-2 text-[11px] text-muted-foreground">{doc.file_name} · {(doc.size_bytes / 1048576).toFixed(2)} MB · {extractionHint(doc.text_status, doc.extraction_engine)}</p>
     </li>)}</ul>
-    <p className="mt-4 text-xs text-muted-foreground"><Link className="text-primary underline" to="/documentos">Ir para Documentos</Link> para enviar, baixar ou excluir arquivos.</p>
+    <p className="mt-4 text-xs text-muted-foreground"><Link className="text-primary underline" to={`/documentos?caso=${caseId}`}>Ir para Documentos</Link> para enviar, baixar ou excluir arquivos.</p>
   </Section>;
 }

@@ -33,7 +33,10 @@ export default function RegistryPage({ resource, headerSlot }: { resource: Resou
   const stages = useQuery({ queryKey: ['stages', definition.stageTable], enabled: !!definition.stageTable, queryFn: async () => { const result = await supabase.from(definition.stageTable!).select('*').order('position'); if (result.error) throw result.error; return result.data; } });
   const query = useQuery({ queryKey: ['registry', resource, term, page, ascending, stage], queryFn: async () => {
     let q = supabase.from(definition.table).select(definition.select, { count: 'exact' }).order('created_at', { ascending }).order('id').range(page * 20, page * 20 + 19);
-    if (term) q = q.ilike(definition.search, `%${term.replace(/[%_\\]/g, '')}%`);
+    if (term) {
+      const clean = term.replace(/[%_\\,()]/g, '');
+      q = resource === 'cases' ? q.or(`title.ilike.%${clean}%,reference.ilike.%${clean}%,cnj_number.ilike.%${clean}%,claimant.ilike.%${clean}%,defendant.ilike.%${clean}%,court_unit.ilike.%${clean}%,claim_summary.ilike.%${clean}%`) : q.ilike(definition.search, `%${clean}%`);
+    }
     if (stage) q = q.filter(definition.stageTable ? 'stage_id' : 'status', 'eq', stage);
     if (resource === 'contacts' || resource === 'cases') q = q.is('archived_at', null);
     const result = await q; if (result.error) throw result.error;
@@ -50,7 +53,7 @@ export default function RegistryPage({ resource, headerSlot }: { resource: Resou
     }
     if (column.type === 'date') return dateLabel(value as string);
     if (column.type === 'member') return directory.data?.find(m => m.id === value)?.name || 'Responsável';
-    if (column.type === 'relation') { const related = value as { name?: string; reference?: string } | null; return related?.name || related?.reference || '—'; }
+    if (column.type === 'relation') { const related = value as { name?: string; reference?: string; cnj_number?: string } | null; return related?.cnj_number || related?.name || related?.reference || '—'; }
     if (column.type === 'status') return ({ ...contactKinds, ...taskStatuses, ...priorities, ...proposalStatuses, ...receivableStatuses } as Record<string, string>)[String(value)] || String(value);
     return value ? String(value) : '—';
   };

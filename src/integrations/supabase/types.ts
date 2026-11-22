@@ -5123,10 +5123,54 @@ export type Database = {
         }
         Relationships: []
       }
+      amcf_fee_templates: {
+        Row: {
+          active: boolean
+          amount_cents: number
+          created_at: string
+          created_by: string
+          description: string
+          id: string
+          service: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          amount_cents: number
+          created_at?: string
+          created_by?: string
+          description?: string
+          id?: string
+          service: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          amount_cents?: number
+          created_at?: string
+          created_by?: string
+          description?: string
+          id?: string
+          service?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "amcf_fee_templates_created_by_fkey"
+            columns: ["created_by"]
+            referencedRelation: "amcf_members"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       amcf_proposals: {
         Row: {
           amount_cents: number
           case_id: string | null
+          fee_template_id: string | null
           contact_id: string
           created_at: string
           created_by: string
@@ -5144,6 +5188,7 @@ export type Database = {
         Insert: {
           amount_cents: number
           case_id?: string | null
+          fee_template_id?: string | null
           contact_id: string
           created_at?: string
           created_by?: string
@@ -5161,6 +5206,7 @@ export type Database = {
         Update: {
           amount_cents?: number
           case_id?: string | null
+          fee_template_id?: string | null
           contact_id?: string
           created_at?: string
           created_by?: string
@@ -5176,6 +5222,12 @@ export type Database = {
           valid_until?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "amcf_proposals_fee_template_id_fkey"
+            columns: ["fee_template_id"]
+            referencedRelation: "amcf_fee_templates"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "amcf_proposals_case_id_fkey"
             columns: ["case_id"]

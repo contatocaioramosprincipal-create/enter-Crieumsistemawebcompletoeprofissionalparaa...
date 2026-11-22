@@ -11,18 +11,18 @@ import { caseInputSummary, caseNextAction, caseReadiness, fail, type CaseStep, t
 import { useCaseMutate } from './useCaseMutate';
 import { Empty, KeyValue, NextActionBar, Pill, Score, Section, SubSection } from './ui';
 
-interface CaseProcess { id: string; cnj_number: string | null; action_type: string | null; court: string | null; court_unit: string | null; claimant: string | null; defendant: string | null; claim_summary: string | null }
+interface CaseProcess { id: string; cnj_number: string | null; action_type: string | null; court: string | null; court_unit: string | null; claimant: string | null; defendant: string | null; claim_summary: string | null; administrative_summary: string }
 
 export default function ProcessOverviewTab({ item }: { item: CaseProcess }) {
   const { busy, mutate } = useCaseMutate();
-  const [draft, setDraft] = useState({ cnj: item.cnj_number || '', action_type: item.action_type || 'pericia_judicial', court: item.court || '', court_unit: item.court_unit || '', claimant: item.claimant || '', defendant: item.defendant || '', claim_summary: item.claim_summary || '' });
+  const [draft, setDraft] = useState({ cnj: item.cnj_number || '', action_type: item.action_type || 'pericia_judicial', court: item.court || '', court_unit: item.court_unit || '', claimant: item.claimant || '', defendant: item.defendant || '', claim_summary: item.claim_summary || '', administrative_summary: item.administrative_summary || '' });
   const [step, setStep] = useState({ label: '', detail: '', next_action: '', next_action_on: '' });
   const cnjMessage = cnjError(draft.cnj);
   const steps = useQuery({ queryKey: ['case-steps', item.id], queryFn: async () => fail<CaseStep[]>(supabase.from('amcf_case_steps').select('*').eq('case_id', item.id).order('position')) });
   const readiness = useQuery({ queryKey: ['case-readiness', item.id], queryFn: async () => caseReadiness(item.id) });
   const summary = useQuery({ queryKey: ['case-input-summary', item.id], queryFn: async () => caseInputSummary(item.id) });
   const next = useQuery({ queryKey: ['case-next-action', item.id], queryFn: async () => caseNextAction(item.id) });
-  const save = () => mutate(() => supabase.from('amcf_cases').update({ cnj_number: draft.cnj.trim() ? formatCnj(draft.cnj) : null, action_type: draft.action_type || null, court: draft.court || null, court_unit: draft.court_unit || null, claimant: draft.claimant || null, defendant: draft.defendant || null, claim_summary: draft.claim_summary || null }).eq('id', item.id).select('id'), 'Dados do processo atualizados.');
+  const save = () => mutate(() => supabase.from('amcf_cases').update({ cnj_number: draft.cnj.trim() ? formatCnj(draft.cnj) : null, action_type: draft.action_type || null, court: draft.court || null, court_unit: draft.court_unit || null, claimant: draft.claimant || null, defendant: draft.defendant || null, claim_summary: draft.claim_summary || null, administrative_summary: draft.administrative_summary.trim() }).eq('id', item.id).select('id'), 'Dados do processo atualizados.');
   const addStep = () => mutate(() => supabase.from('amcf_case_steps').insert({ case_id: item.id, label: step.label, detail: step.detail, next_action: step.next_action, next_action_on: step.next_action_on || null, position: (steps.data?.length || 0) + 1, status: 'pendente' }).select('id'), 'Etapa registrada.').then(ok => { if (ok) setStep({ label: '', detail: '', next_action: '', next_action_on: '' }); });
   const readinessLinesValue = readinessLines(readiness.data as Readiness | undefined);
   return <div className="space-y-6">
@@ -39,6 +39,7 @@ export default function ProcessOverviewTab({ item }: { item: CaseProcess }) {
             <div><label className="field-label" htmlFor="p-defendant">Réu(s)</label><Input id="p-defendant" value={draft.defendant} onChange={event => setDraft({ ...draft, defendant: event.target.value })} maxLength={200} disabled={busy} /></div>
           </div>
           <div><label className="field-label" htmlFor="p-claim">Objeto da ação (resumo administrativo)</label><Textarea id="p-claim" value={draft.claim_summary} onChange={event => setDraft({ ...draft, claim_summary: event.target.value })} maxLength={4000} rows={4} disabled={busy} /></div>
+          <div><label className="field-label" htmlFor="p-important">ID externo / informações importantes</label><Textarea id="p-important" value={draft.administrative_summary} onChange={event => setDraft({ ...draft, administrative_summary: event.target.value })} maxLength={4000} rows={3} disabled={busy} placeholder="Identificadores, observações e referências administrativas" /></div>
           <Button disabled={busy || !!cnjMessage}><Save />Salvar dados do processo</Button>
         </form>
       </Section>

@@ -1,0 +1,38 @@
+name: Validacao AMCF - Processos e honorarios
+
+on:
+  push:
+    branches:
+      - feat/amcf-sara-processos-honorarios-20261122
+  pull_request:
+    branches:
+      - amcf-react-supabase-independente
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validation:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - name: Install
+        run: pnpm install --no-frozen-lockfile
+      - name: Typecheck
+        run: pnpm exec tsc --noEmit
+      - name: Production build
+        env:
+          VITE_SUPABASE_URL: https://example.supabase.co
+          VITE_SUPABASE_PUBLISHABLE_KEY: ci-placeholder
+        run: pnpm run build:prod
