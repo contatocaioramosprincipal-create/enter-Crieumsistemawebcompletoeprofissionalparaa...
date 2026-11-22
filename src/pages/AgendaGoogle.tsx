@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { CalendarDays, Plus, RefreshCw, Save, Trash2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
@@ -18,7 +18,8 @@ type FormData={id:string;summary:string;starts:string;ends:string;caseId:string}
 const blank:FormData={id:'',summary:'Compromisso pericial',starts:'',ends:'',caseId:''};
 export default function AgendaGoogle(){
  const {access}=useAuth(),owner=access?.member?.id||'',cache=useQueryClient();
- const [form,setForm]=useState<FormData>(blank);
+ const [params]=useSearchParams();
+ const [form,setForm]=useState<FormData>(()=>({...blank,caseId:params.get('caso')||''}));
  const [busy,setBusy]=useState(false),[message,setMessage]=useState('');
  const conn=useQuery({queryKey:['amcf-google-calendar-connection',owner],enabled:!!owner,queryFn:async()=>{
   const r=await supabase.from('amcf_google_connections').select('google_email,last_calendar_sync_at').eq('owner_id',owner).maybeSingle();
