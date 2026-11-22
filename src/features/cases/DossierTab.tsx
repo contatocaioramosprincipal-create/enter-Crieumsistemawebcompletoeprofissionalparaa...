@@ -90,6 +90,6 @@ export default function DossierTab({item}:{item:Header}) {
         <ol className="space-y-2">{reports.data?.map(r=><li key={r.id} className="rounded-md border p-3"><div className="flex items-center gap-2"><ClipboardList size={15}/><strong className="text-sm">{r.title}</strong></div><p className="mt-1 text-xs text-muted-foreground">Versão {r.version} · {r.status} · {dateLabel(r.created_at)}</p></li>)}</ol>
       </Section>
     </div>
-    <div className="flex flex-wrap gap-2"><Button variant="outline" onClick={()=>window.print()}><Printer/>Imprimir resumo exibido</Button><Button asChild variant="outline"><Link to={'/documentos?caso='+id}><FileText/>Documentos</Link></Button><Button asChild variant="outline"><Link to="/assistente-pericia"><Clock3/>Assistente pericial</Link></Button></div>
+    <div className="flex flex-wrap gap-2"><Button variant="outline" onClick={()=>window.print()}><Printer/>Imprimir resumo exibido</Button><Button asChild variant="outline"><Link to={'/documentos?caso='+id}><FileText/>Documentos</Link></Button><Button asChild variant="outline"><Link to={"/assistente-pericia?caso="+id}><Clock3/>Assistente pericial</Link></Button></div>
   </div>;
 }
