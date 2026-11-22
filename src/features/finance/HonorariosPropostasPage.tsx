@@ -32,6 +32,7 @@ export default function HonorariosPropostasPage() {
   const [validUntil, setValidUntil] = useState('');
   const [notes, setNotes] = useState('');
   const [busy, setBusy] = useState(false);
+  const [statusBusy, setStatusBusy] = useState<string | null>(null);
   const [showTemplateForm, setShowTemplateForm] = useState(false);
   const [newTemplate, setNewTemplate] = useState({ title: '', service: 'Perícia médica', description: '', amount: '' });
 
@@ -83,6 +84,18 @@ export default function HonorariosPropostasPage() {
       toast.success(active ? 'Modelo desativado.' : 'Modelo reativado.');
     } catch (error) { toast.error(errorMessage(error)); }
     finally { setBusy(false); }
+  };
+
+  const setProposalStatus = async (id: string, status: string) => {
+    if (!canManage || !Object.hasOwn(statusLabels, status)) return;
+    setStatusBusy(id);
+    try {
+      const result = await supabase.from('amcf_proposals').update({ status }).eq('id', id).select('id');
+      if (result.error || !result.data?.length) throw result.error || new Error('Atualização não autorizada.');
+      await Promise.all([cache.invalidateQueries({ queryKey: ['amcf-case-proposals'] }), cache.invalidateQueries({ queryKey: ['case-proposals'] })]);
+      toast.success('Situação da proposta atualizada.');
+    } catch (error) { toast.error(errorMessage(error)); }
+    finally { setStatusBusy(null); }
   };
 
   const saveProposal = async (event: React.FormEvent) => {
@@ -144,7 +157,8 @@ export default function HonorariosPropostasPage() {
       <QueryState loading={proposals.isPending} error={proposals.isError} empty={!proposals.isPending && !proposals.isError && !proposals.data?.length} title="Nenhuma proposta visível" onRetry={() => void proposals.refetch()} />
       <div className="mt-4 space-y-2">{proposals.data?.map(p => <div key={p.id} className="flex flex-wrap items-center justify-between gap-3 rounded-md border p-4">
         <div><strong className="text-sm">{p.title}</strong><p className="mt-1 text-xs text-muted-foreground">Processo: {p.linked_case?.cnj_number || p.linked_case?.reference || 'Não identificado'} · Status: {statusLabels[p.status] || p.status} · {dateLabel(p.created_at)} · Valor {currency(p.amount_cents)}</p></div>
-        {p.case_id && <Button asChild variant="outline" size="sm"><Link to={`/casos/${p.case_id}`}><ArrowUpRight size={14}/>Abrir processo</Link></Button>}
+        <div className="flex flex-wrap items-center gap-2">{canManage && <select aria-label={`Alterar status da proposta ${p.title}`} className="native-select w-auto" value={p.status} disabled={statusBusy === p.id} onChange={e => void setProposalStatus(p.id, e.target.value)}>{Object.entries(statusLabels).map(([value,label]) => <option key={value} value={value}>{label}</option>)}</select>}
+        {p.case_id && <Button asChild variant="outline" size="sm"><Link to={`/casos/${p.case_id}`}><ArrowUpRight size={14}/>Abrir processo</Link></Button>}</div>
       </div>)}</div>
     </section>
   </div>;
