@@ -15,6 +15,18 @@ export default function CaseFinanceTab({ caseId }: { caseId: string }) {
   const { busy, mutate } = useCaseMutate();
   const [form, setForm] = useState({ kind: 'honorario', description: '', amount: '', expected_on: '' });
   const events = useQuery({ queryKey: ['case-finance', caseId], queryFn: async () => fail<FinancialEvent[]>(supabase.from('amcf_case_financial_events').select('*').eq('case_id', caseId).order('created_at', { ascending: false })) });
+  const proposals = useQuery({ queryKey: ['case-finance-proposals',caseId], queryFn: async () => {
+    const r = await supabase.from('amcf_proposals').select('id,status,amount_cents,title').eq('case_id',caseId);
+    if (r.error) throw r.error; return r.data;
+  } });
+  const receivables = useQuery({ queryKey: ['case-finance-receivables',caseId], queryFn: async () => {
+    const r = await supabase.from('amcf_receivables').select('id,status,amount_cents,description,due_on').eq('case_id',caseId);
+    if (r.error) throw r.error; return r.data;
+  } });
+  const drafts = (proposals.data||[]).filter(p=>p.status==='draft');
+  const sent = (proposals.data||[]).filter(p=>p.status==='sent'||p.status==='accepted');
+  const openReceivables=(receivables.data||[]).filter(r=>r.status==='pending'||r.status==='overdue');
+  const sumAmounts=(rows:{ amount_cents:number }[])=>rows.reduce((t,row)=>t+Number(row.amount_cents),0);
   const rows = events.data || [];
   const sum = (kinds: string[], status: string) => rows.filter(item => kinds.includes(item.kind) && item.status === status).reduce((total, item) => total + Number(item.amount_cents), 0);
   const cents = Math.round(Number(form.amount.replace(/\./g, '').replace(',', '.')) * 100);
@@ -30,6 +42,13 @@ export default function CaseFinanceTab({ caseId }: { caseId: string }) {
         <Score value={currency(sum(['honorario', 'liberacao', 'alvara'], 'confirmado'))} caption="Recebido (confirmado)" />
         <Score value={currency(sum(['despesa'], 'previsto') + sum(['despesa'], 'confirmado'))} caption="Despesas do processo" />
       </div>
+      {(proposals.isError || receivables.isError) && <p role="alert" className="mt-4 text-xs text-destructive">Não foi possível reunir propostas ou contas a receber.</p>}
+      <div className="mt-5 grid gap-3 sm:grid-cols-3">
+        <Score value={String(drafts.length)} caption="Propostas em rascunho" />
+        <Score value={currency(sumAmounts(sent))} caption="Propostas enviadas ou aceitas (não recebidas)" />
+        <Score value={currency(sumAmounts(openReceivables))} caption="Contas a receber abertas" />
+      </div>
+      <p className="mt-3 text-[11px] leading-5 text-muted-foreground">Propostas, contas a receber e lançamentos são conjuntos distintos: não somamos seus valores como receita para evitar dupla contagem. Confirme depósitos, alvarás e recebimentos individualmente.</p>
       {!events.isPending && !events.isError && !rows.length && <div className="mt-4"><Empty title="Nenhum lançamento" description="Registre honorários, depósitos, alvarás e despesas deste processo." /></div>}
       <ul className="mt-4 space-y-3">{rows.map(item => <li key={item.id} className="flex flex-wrap items-center gap-3 rounded-md border px-4 py-3 text-sm">
         <strong>{item.description}</strong>
