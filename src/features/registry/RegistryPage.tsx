@@ -53,7 +53,7 @@ export default function RegistryPage({ resource, headerSlot }: { resource: Resou
     }
     if (column.type === 'date') return dateLabel(value as string);
     if (column.type === 'member') return directory.data?.find(m => m.id === value)?.name || 'Responsável';
-    if (column.type === 'relation') { const related = value as { name?: string; reference?: string } | null; return related?.name || related?.reference || '—'; }
+    if (column.type === 'relation') { const related = value as { name?: string; reference?: string; cnj_number?: string } | null; return related?.cnj_number || related?.name || related?.reference || '—'; }
     if (column.type === 'status') return ({ ...contactKinds, ...taskStatuses, ...priorities, ...proposalStatuses, ...receivableStatuses } as Record<string, string>)[String(value)] || String(value);
     return value ? String(value) : '—';
   };
