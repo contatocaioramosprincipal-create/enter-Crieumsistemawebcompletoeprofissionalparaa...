@@ -5212,6 +5212,7 @@ export type Database = {
           datajud_tribunal_alias: string | null
           datajud_summary: Json
           official_case_url: string | null
+          discard_reason: string | null
         }
         Insert: {
           id?: string
@@ -5236,6 +5237,7 @@ export type Database = {
           datajud_tribunal_alias?: string | null
           datajud_summary?: Json
           official_case_url?: string | null
+          discard_reason?: string | null
         }
         Update: {
           id?: string
@@ -5260,6 +5262,7 @@ export type Database = {
           datajud_tribunal_alias?: string | null
           datajud_summary?: Json
           official_case_url?: string | null
+          discard_reason?: string | null
         }
         Relationships: [
           {
@@ -5272,6 +5275,34 @@ export type Database = {
             foreignKeyName: "amcf_appointment_leads_reviewed_by_fkey"
             columns: ["reviewed_by"]
             referencedRelation: "amcf_members"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      amcf_appointment_publication_texts: {
+        Row: {
+          lead_id: string
+          publication_text: string
+          is_truncated: boolean
+          captured_at: string
+        }
+        Insert: {
+          lead_id: string
+          publication_text: string
+          is_truncated?: boolean
+          captured_at?: string
+        }
+        Update: {
+          lead_id?: string
+          publication_text?: string
+          is_truncated?: boolean
+          captured_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "amcf_appointment_publication_texts_lead_id_fkey"
+            columns: ["lead_id"]
+            referencedRelation: "amcf_appointment_leads"
             referencedColumns: ["id"]
           },
         ]
