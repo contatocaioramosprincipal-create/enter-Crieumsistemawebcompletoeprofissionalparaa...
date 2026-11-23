@@ -45,7 +45,7 @@ const officialCaseLink=(value:unknown):string|null=>{
 type Term={id:string;phrase:string;active:boolean};
 type Communication={hash?:string;id?:string|number;link?:string;numero_processo?:string;
  numeroprocessocommascara?:string;numeroProcesso?:string;texto?:string;
- textoComunicacao?:string;datadisponibilizacao?:string;dataDisponibilizacao?:string;
+ textoComunicacao?:string;data_disponibilizacao?:string;datadisponibilizacao?:string;dataDisponibilizacao?:string;
  siglaTribunal?:string;nomeOrgao?:string;tipoComunicacao?:string};
 const extract=(entry:Communication,phrase:string)=>{
  const content=readable(entry.texto||entry.textoComunicacao||"");
@@ -58,7 +58,7 @@ const extract=(entry:Communication,phrase:string)=>{
  if(cnj.length!==20)return null;
  const vicinity=normalized.slice(Math.max(0,position-140),Math.min(normalized.length,position+name.length+140));
  const potential=/(nomea(?:d[oa]|cao|ção|r|se)?|nomeio|designa(?:d[oa]|cao|ção|r)?|perit[oa]|pericia|perícia)/i.test(vicinity);
- const foundDate=/^\d{4}-\d{2}-\d{2}/.exec(String(entry.datadisponibilizacao||entry.dataDisponibilizacao||""))?.[0]||null;
+ const foundDate=/^\d{4}-\d{2}-\d{2}/.exec(String(entry.data_disponibilizacao||entry.datadisponibilizacao||entry.dataDisponibilizacao||""))?.[0]||null;
  return {
   external_hash:hash,matched_term:phrase,cnj_number:cnj,
   tribunal:plain(entry.siglaTribunal).slice(0,40),
