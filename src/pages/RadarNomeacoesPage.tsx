@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import PageHeader from '@/components/data-table/PageHeader';
 import QueryState from '@/components/data-table/QueryState';
+import PublicationFullText from '@/pages/PublicationFullText';
 import { dateLabel, errorMessage } from '@/lib/format';
 
 const statuses:Record<string,string>={
@@ -81,7 +82,7 @@ export default function RadarNomeacoesPage(){
  const add=async(e:React.FormEvent)=>{
   e.preventDefault();if(!manager||!memberId)return;
   const phrase=newTerm.trim().replace(/\s+/g,' ');
-  if(phrase.length<7||phrase.length>120||phrase.split(' ').length<2){setFeedback('Informe nome e sobrenome (7 a 120 caracteres).');return;}
+  if(phrase.length<10||phrase.length>120||phrase.split(' ').length<3){setFeedback('Informe o nome completo (ao menos 3 palavras, de 10 a 120 caracteres) para evitar homônimos.');return;}
   setBusy(true);setFeedback('');
   try{
    const r=await supabase.from('amcf_appointment_search_terms').insert({phrase,created_by:memberId}).select('id');
@@ -91,7 +92,10 @@ export default function RadarNomeacoesPage(){
   }catch(e){setFeedback(errorMessage(e));}finally{setBusy(false);}
  };
  const toggle=async(id:string,active:boolean)=>{
-  if(!manager)return;setBusy(true);
+  if(!manager)return;
+  const candidate=terms.data?.find(x=>x.id===id);
+  if(!active&&candidate&&candidate.phrase.trim().split(/\s+/).length<3){setFeedback('A busca genérica por nome e sobrenome foi desativada porque gerou homônimos. Use o nome completo do médico.');return;}
+  setBusy(true);
   try{
    const r=await supabase.from('amcf_appointment_search_terms').update({active:!active}).eq('id',id).select('id');
    if(r.error||!r.data?.length)throw r.error||new Error('Não autorizado.');
@@ -116,6 +120,7 @@ export default function RadarNomeacoesPage(){
     (!normalized||[c.cnj_number,c.tribunal,c.court_unit,c.matched_term,c.excerpt]
       .some(value=>String(value||'').toLocaleLowerCase('pt-BR').includes(normalized))));
  const pending=(leads.data||[]).filter(c=>c.status==='pendente').length;
+ const activeLeads=(leads.data||[]).filter(c=>c.status!=='descartada').length;
  const likely=(leads.data||[]).filter(c=>c.match_kind==='possivel_nomeacao'&&c.status!=='descartada').length;
  return <div className="space-y-6">
   <PageHeader eyebrow="AMCF / INTELIGÊNCIA PROCESSUAL" title="Radar de Nomeações"
@@ -123,6 +128,7 @@ export default function RadarNomeacoesPage(){
     <Button variant="outline" disabled={busy||terms.isPending||!terms.data?.some(t=>t.active)} onClick={()=>void scan('daily')}><RefreshCw size={16}/>{busy?'Consultando…':'Pesquisar últimos 30 dias'}</Button>
     <Button variant="outline" disabled={busy||terms.isPending||!terms.data?.some(t=>t.active)} onClick={()=>void scan('history')}><History size={16}/>Ampliar histórico de 90 dias</Button>
   </PageHeader>
+  {feedback&&<p role="status" className="rounded-md border p-3 text-sm">{feedback}</p>}
   <div className="notice"><Radar size={18} className="shrink-0"/><p>É uma busca de <strong>menções públicas</strong>, não uma certidão de nomeação. Confira o despacho no tribunal antes de confirmar. Processos sigilosos e nomeações que não aparecem no DJEN podem ficar de fora. O sistema não cria casos ou calcula prazos automaticamente.</p></div>
   <section className="data-panel p-5">
     <div className="flex items-center gap-2"><Globe2 size={18} className="text-primary"/><h2 className="text-sm font-semibold">Busca nacional com fontes públicas — sem assinatura de buscador comercial</h2></div>
@@ -131,16 +137,17 @@ export default function RadarNomeacoesPage(){
     <p className="mt-3 text-xs text-muted-foreground">As pesquisas recentes rodam duas vezes ao dia. O histórico de 90 dias é examinado progressivamente, por semana, para respeitar limites da fonte. Custos de infraestrutura do AMCF continuam sujeitos ao uso normal.</p>
   </section>
   <div className="grid gap-3 sm:grid-cols-3">
-   {[['Pendentes',pending],['Possíveis nomeações',likely],['Total encontrado',leads.data?.length??'—']].map(([name,value])=><div key={name} className="data-panel p-5"><p className="text-xs text-muted-foreground">{name}</p><strong className="mt-2 block text-2xl">{value}</strong></div>)}
+   {[['Pendentes',pending],['Possíveis nomeações',likely],['Ocorrências válidas para conferência',leads.isPending?'—':activeLeads]].map(([name,value])=><div key={name} className="data-panel p-5"><p className="text-xs text-muted-foreground">{name}</p><strong className="mt-2 block text-2xl">{value}</strong></div>)}
   </div>
   <section className="data-panel p-6">
    <h2 className="text-sm font-semibold">Nomes monitorados</h2>
    <p className="mt-1 text-xs text-muted-foreground">Verificação automática a cada 12 horas. O médico pode acrescentar grafias alternativas do próprio nome.</p>
+   <p className="mt-2 text-xs text-muted-foreground">Nome principal confirmado pelo doutor: <strong>ADILSON MACHADO COUTO FILHO</strong>. A busca anterior por “Adilson Couto” foi desativada por trazer homônimos.</p>
    {terms.isError&&<p role="alert" className="text-xs text-destructive">Erro ao carregar os nomes.</p>}
-   <div className="mt-4 flex flex-wrap gap-2">{terms.data?.map(t=><div key={t.id} className="flex flex-wrap items-center gap-2 rounded-md border p-2 text-sm"><span>{t.phrase}</span><span className="text-xs text-muted-foreground">{t.active?'Ativo':'Pausado'}</span>{history.data?.find(h=>h.term_id===t.id)&&<span className="text-[11px] text-muted-foreground">Histórico: {history.data.find(h=>h.term_id===t.id)?.finished_on?'90 dias concluídos':(history.data.find(h=>h.term_id===t.id)?.windows_checked||0)+' semana(s) revisadas'}</span>}{manager&&<Button variant="outline" size="sm" disabled={busy} onClick={()=>void toggle(t.id,t.active)}>{t.active?'Pausar':'Ativar'}</Button>}</div>)}</div>
+   <div className="mt-4 flex flex-wrap gap-2">{terms.data?.map(t=><div key={t.id} className="flex flex-wrap items-center gap-2 rounded-md border p-2 text-sm"><span>{t.phrase}</span><span className="text-xs text-muted-foreground">{t.active?'Ativo':t.phrase.trim().split(/\s+/).length<3?'Inativo (nome genérico)':'Pausado'}</span>{history.data?.find(h=>h.term_id===t.id)&&<span className="text-[11px] text-muted-foreground">Histórico: {history.data.find(h=>h.term_id===t.id)?.finished_on?'90 dias concluídos':(history.data.find(h=>h.term_id===t.id)?.windows_checked||0)+' semana(s) revisadas'}</span>}{manager&&<Button variant="outline" size="sm" disabled={busy||(!t.active&&t.phrase.trim().split(/\s+/).length<3)} onClick={()=>void toggle(t.id,t.active)}>{t.active?'Pausar':'Ativar'}</Button>}</div>)}</div>
    {manager&&<form onSubmit={e=>void add(e)} className="mt-4 flex flex-wrap items-end gap-2">
-    <div className="min-w-52 flex-1"><label className="field-label" htmlFor="new-term">Outra grafia do nome profissional</label><Input id="new-term" value={newTerm} onChange={e=>setNewTerm(e.target.value)} maxLength={120} disabled={busy} placeholder="Nome completo ou variação"/></div>
-    <Button disabled={busy||newTerm.trim().length<7}><Plus size={16}/>Adicionar grafia</Button>
+    <div className="min-w-52 flex-1"><label className="field-label" htmlFor="new-term">Outra grafia do nome profissional</label><Input id="new-term" value={newTerm} onChange={e=>setNewTerm(e.target.value)} maxLength={120} disabled={busy} placeholder="Nome completo, com pelo menos 3 palavras"/></div>
+    <Button disabled={busy||newTerm.trim().length<10||newTerm.trim().split(/\s+/).length<3}><Plus size={16}/>Adicionar grafia</Button>
    </form>}
   </section>
   <section className="data-panel p-6">
@@ -160,7 +167,9 @@ export default function RadarNomeacoesPage(){
      return <article key={c.id} className="rounded-lg border p-4">
       <div className="flex flex-wrap items-center justify-between gap-3"><div><p className="text-sm font-semibold">{c.cnj_number?fmt(c.cnj_number):'Sem CNJ'} · {c.tribunal||'Tribunal não informado'}</p><p className="mt-1 text-xs text-muted-foreground">{c.court_unit||'Órgão não informado'} · {dateLabel(c.available_on)} · {c.communication_type}</p></div><span className="status-pill status-neutral">{statuses[c.status]||c.status}</span></div>
       <div className="mt-3 flex flex-wrap gap-2 text-xs"><span className="rounded bg-muted px-2 py-1">{c.match_kind==='possivel_nomeacao'?'Possível nomeação — conferir':'Outra menção'}</span><span className="rounded bg-muted px-2 py-1">Termo: {c.matched_term}</span>{found&&<span className="rounded bg-muted px-2 py-1">Já existe no CRM</span>}</div>
-      <p className="mt-3 rounded-md bg-muted/40 p-3 text-sm leading-6">{c.excerpt?'“'+c.excerpt+'”':'Sem trecho disponível'}</p>
+      <div className="mt-3 rounded-md bg-muted/40 p-3"><p className="text-xs font-semibold text-muted-foreground">Prévia da publicação</p><p className="mt-2 whitespace-pre-wrap break-words text-sm leading-6">{c.excerpt?'“'+c.excerpt+'”':'Sem trecho disponível'}</p></div>
+      <PublicationFullText leadId={c.id} sourceUrl={link} />
+      {c.status==='descartada'&&c.discard_reason&&<p className="mt-3 rounded-md border p-3 text-xs text-muted-foreground">Motivo do descarte: {c.discard_reason}</p>}
       <div className="mt-3 rounded-md border p-3 text-xs">
        <div className="flex flex-wrap items-center justify-between gap-2"><span className="inline-flex items-center gap-2 font-semibold"><Database size={15}/>Metadados DataJud</span><span className="text-muted-foreground">{c.datajud_status==='localizado'?'Localizado':c.datajud_status==='nao_localizado'?'Sem registro público encontrado':c.datajud_status==='indisponivel'?'Fonte temporariamente indisponível':c.datajud_status==='nao_suportado'?'Tribunal sem consulta automática configurada':'Aguardando pesquisa'}</span></div>
        {c.datajud_status==='localizado'&&summary&&<div className="mt-3 space-y-2 text-muted-foreground"><p>Classe: {summary.classe?.nome||summary.classe?.codigo||'Não informada'} · Órgão: {summary.orgaoJulgador||'Não informado'}</p><p>Ajuizamento: {dateLabel(summary.dataAjuizamento||null)} · Tribunal: {summary.tribunal||c.datajud_tribunal_alias||c.tribunal}</p>{Array.isArray(summary.assuntos)&&summary.assuntos.length>0&&<p>Assuntos: {summary.assuntos.map(a=>a.nome||a.codigo).filter(Boolean).join('; ')}</p>}{Array.isArray(summary.movimentos)&&summary.movimentos.length>0&&<div><p className="font-medium">Últimas movimentações públicas:</p>{summary.movimentos.slice(0,3).map((m,i)=><p key={i} className="mt-1">{dateLabel(m.data||null)} · {m.nome}</p>)}</div>}</div>}
@@ -181,7 +190,7 @@ export default function RadarNomeacoesPage(){
   <section className="data-panel p-6"><h2 className="text-sm font-semibold">Histórico de busca</h2>
    <div className="mt-3 space-y-2">{runs.data?.map(r=><div key={r.id} className="flex flex-wrap justify-between gap-3 rounded-md border p-3 text-xs"><span>{r.matched_term} · {r.scan_mode==='history'?'Histórico':'Recente'} · {dateLabel(r.date_from)} a {dateLabel(r.date_to)}</span><span>{r.status} · {r.inserted} nova(s) / {r.found} menção(ões){r.truncated?' · Paginação limitada':''}{r.error_note?' · '+r.error_note:''}</span></div>)}</div>
    {!runs.isPending&&!runs.data?.length&&<p className="mt-3 text-xs text-muted-foreground">Nenhuma consulta registrada ainda.</p>}
-   {feedback&&<p role="status" className="mt-4 rounded-md border p-3 text-xs">{feedback}</p>}
+
    <p className="mt-3 text-xs text-muted-foreground">Fonte: DJEN/CNJ. Apenas processos públicos com menções identificáveis, respeitando limites da API. WhatsApp não é utilizado.</p>
   </section>
  </div>;
