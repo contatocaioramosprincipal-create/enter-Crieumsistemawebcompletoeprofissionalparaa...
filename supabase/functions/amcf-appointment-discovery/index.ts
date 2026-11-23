@@ -1,127 +1,174 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.4";
-// Radar de Nomeações: somente busca em comunicações públicas do DJEN.
-// Menção NÃO equivale a nomeação efetiva. Nunca cadastra casos ou prazos automaticamente.
+// Pesquisa NACIONAL no DJEN/CNJ por grafias profissionais autorizadas.
+// O DJEN não é um cadastro de peritos: cada resultado continua pendente de conferência.
+// Rotina recente e retrospectiva de 90 dias em janelas de 7 dias, sem varredura abusiva.
 const ALLOWED=new Set(["https://sistema.dradilsoncouto.com.br","https://amcf-dr-adilson-original.pages.dev"]);
-const reply=(data:unknown,status=200,origin="")=>new Response(JSON.stringify(data),{
- status,headers:{"Content-Type":"application/json; charset=utf-8","Cache-Control":"no-store",
- "X-Content-Type-Options":"nosniff","Vary":"Origin",...(origin?{"Access-Control-Allow-Origin":origin}:{})}
-});
-type Row={id:string;phrase:string;active:boolean};
+const response=(body:unknown,status=200,origin="")=>new Response(JSON.stringify(body),{status,headers:{
+ "Content-Type":"application/json; charset=utf-8","Cache-Control":"no-store","X-Content-Type-Options":"nosniff",
+ "Vary":"Origin",...(origin?{"Access-Control-Allow-Origin":origin}:{})
+}});
+const date=(d:Date)=>d.toISOString().slice(0,10);
+const addDays=(iso:string,delta:number)=>date(new Date(Date.parse(iso+"T12:00:00Z")+delta*86400000));
 const normalize=(s:string)=>s.normalize("NFD").replace(/[\u0300-\u036f]/g,"")
  .toLocaleLowerCase("pt-BR").replace(/\s+/g," ").trim();
-const plain=(raw:unknown)=>{
- return String(raw??"").replace(/<[^>]*>/g," ").replace(/&nbsp;/gi," ")
-  .replace(/&amp;/gi,"&").replace(/&quot;/gi,'"').replace(/&#39;/gi,"'")
-  .replace(/[\u0000-\u001F]+/g," ").replace(/\s+/g," ").trim();
+const plain=(v:unknown)=>String(v??"").replace(/<script[\s\S]*?<\/script>/gi," ")
+ .replace(/<style[\s\S]*?<\/style>/gi," ").replace(/<[^>]*>/g," ")
+ .replace(/&nbsp;|&#160;/gi," ").replace(/&amp;/gi,"&").replace(/&quot;/gi,'"')
+ .replace(/&#39;|&apos;/gi,"'").replace(/[\u0000-\u001F]/g," ").replace(/\s+/g," ").trim();
+const trustedSource=(hash:string)=>"https://comunicaapi.pje.jus.br/api/v1/comunicacao/"+
+ encodeURIComponent(hash)+"/certidao";
+type Term={id:string;phrase:string;active:boolean};
+type Communication={hash?:string;id?:string|number;numero_processo?:string;
+ numeroprocessocommascara?:string;numeroProcesso?:string;texto?:string;
+ textoComunicacao?:string;datadisponibilizacao?:string;dataDisponibilizacao?:string;
+ siglaTribunal?:string;nomeOrgao?:string;tipoComunicacao?:string};
+const extract=(entry:Communication,phrase:string)=>{
+ const content=plain(entry.texto||entry.textoComunicacao||"");
+ const normalized=normalize(content),name=normalize(phrase);
+ const position=normalized.indexOf(name);
+ if(position<0)return null;
+ const hash=plain(entry.hash||"").slice(0,150);
+ if(hash.length<8||!/^[a-z0-9_-]+$/i.test(hash))return null;
+ const cnj=String(entry.numero_processo||entry.numeroProcesso||entry.numeroprocessocommascara||"").replace(/\D/g,"");
+ if(cnj.length!==20)return null;
+ const vicinity=normalized.slice(Math.max(0,position-140),Math.min(normalized.length,position+name.length+140));
+ const potential=/(nomea(?:d[oa]|cao|ção|r|se)?|nomeio|designa(?:d[oa]|cao|ção|r)?|perit[oa]|pericia|perícia)/i.test(vicinity);
+ const foundDate=/^\d{4}-\d{2}-\d{2}/.exec(String(entry.datadisponibilizacao||entry.dataDisponibilizacao||""))?.[0]||null;
+ return {
+  external_hash:hash,matched_term:phrase,cnj_number:cnj,
+  tribunal:plain(entry.siglaTribunal).slice(0,40),
+  court_unit:plain(entry.nomeOrgao).slice(0,200),
+  communication_type:plain(entry.tipoComunicacao).slice(0,150),
+  available_on:foundDate,
+  match_kind:potential?"possivel_nomeacao" as const:"mencao" as const,
+  excerpt:content.slice(Math.max(0,position-130),Math.min(content.length,position+460)),
+  source_url:trustedSource(hash)
+ };
 };
-const date=(d:Date)=>d.toISOString().slice(0,10);
-const sleep=(n:number)=>new Promise(resolve=>setTimeout(resolve,n));
 Deno.serve(async(req:Request)=>{
- const origin=req.headers.get("Origin")||"",allow=ALLOWED.has(origin)?origin:"";
- if(origin&&!allow)return reply({ok:false,error:"Origem não permitida"},403);
+ const origin=req.headers.get("Origin")||"",allowed=ALLOWED.has(origin)?origin:"";
+ if(origin&&!allowed)return response({ok:false,error:"Origem não permitida"},403);
  if(req.method==="OPTIONS")return new Response(null,{status:204,headers:{
-  "Access-Control-Allow-Origin":allow,"Access-Control-Allow-Methods":"POST, OPTIONS",
+  "Access-Control-Allow-Origin":allowed,"Access-Control-Allow-Methods":"POST, OPTIONS",
   "Access-Control-Allow-Headers":"Authorization, apikey, Content-Type, x-client-info","Vary":"Origin"}});
- if(req.method!=="POST")return reply({ok:false,error:"Use POST"},405,allow);
+ if(req.method!=="POST")return response({ok:false,error:"Use POST"},405,allowed);
  const url=Deno.env.get("SUPABASE_URL"),service=Deno.env.get("SUPABASE_SERVICE_ROLE_KEY"),
   anon=Deno.env.get("SUPABASE_ANON_KEY");
- if(!url||!service||!anon)return reply({ok:false,error:"Serviço indisponível"},503,allow);
+ if(!url||!service||!anon)return response({ok:false,error:"Servidor indisponível"},503,allowed);
+ const token=/^Bearer (\S+)$/.exec(req.headers.get("Authorization")||"")?.[1]||"";
+ if(!token)return response({ok:false,error:"Autenticação necessária"},401,allowed);
  const admin=createClient(url,service,{auth:{persistSession:false,autoRefreshToken:false}});
- const bearer=/^Bearer (\S+)$/.exec(req.headers.get("Authorization")||"")?.[1]||"";
- if(!bearer)return reply({ok:false,error:"Autenticação necessária"},401,allow);
- const runner=/^[0-9a-f]{64}$/.test(bearer);
+ const runner=/^[0-9a-f]{64}$/.test(token);
  if(runner){
-  const verify=await admin.rpc("amcf_verify_monitor_token",{p_token:bearer});
-  if(verify.error||verify.data!==true)return reply({ok:false,error:"Não autorizado"},403,allow);
+  const ok=await admin.rpc("amcf_verify_monitor_token",{p_token:token});
+  if(ok.error||ok.data!==true)return response({ok:false,error:"Não autorizado"},403,allowed);
  }else{
   const session=createClient(url,anon,{auth:{persistSession:false,autoRefreshToken:false},
-   global:{headers:{Authorization:"Bearer "+bearer}}});
-  const who=await session.auth.getUser(bearer);
-  if(who.error||!who.data.user)return reply({ok:false,error:"Sessão inválida"},401,allow);
-  const claims=(()=>{try{return JSON.parse(atob(bearer.split(".")[1].replace(/-/g,"+").replace(/_/g,"/")))}catch{return {}}})();
-  if(claims.aal!=="aal2")return reply({ok:false,error:"MFA necessário"},403,allow);
-  const member=await session.from("amcf_members").select("status,role").eq("id",who.data.user.id).maybeSingle();
+   global:{headers:{Authorization:"Bearer "+token}}});
+  const user=await session.auth.getUser(token);
+  if(user.error||!user.data.user)return response({ok:false,error:"Sessão inválida"},401,allowed);
+  const jwt=(()=>{try{return JSON.parse(atob(token.split(".")[1].replace(/-/g,"+").replace(/_/g,"/")))}catch{return {}}})();
+  if(jwt.aal!=="aal2")return response({ok:false,error:"MFA obrigatório"},403,allowed);
+  const member=await session.from("amcf_members").select("role,status")
+    .eq("id",user.data.user.id).maybeSingle();
   if(member.error||member.data?.status!=="active"||
-      !["admin","doctor","assistant"].includes(member.data.role))
-   return reply({ok:false,error:"Sem permissão"},403,allow);
+     !["admin","doctor","assistant"].includes(member.data.role))
+    return response({ok:false,error:"Sem acesso autorizado"},403,allowed);
  }
- const terms=await admin.from("amcf_appointment_search_terms")
-  .select("id,phrase,active").eq("active",true).order("created_at").limit(6);
- if(terms.error)return reply({ok:false,error:"Falha ao consultar termos"},500,allow);
- const now=new Date(),before=new Date(now.getTime()-(runner?8:30)*86400000);
- const start=date(before),end=date(now);
- let inspected=0,newLeads=0,mentions=0,possible=0,failed=0;
- for(const term of (terms.data||[]) as Row[]){
-  const cleanTerm=plain(term.phrase).slice(0,120);
-  if(cleanTerm.length<7||cleanTerm.split(" ").length<2)continue;
-  const recent=await admin.from("amcf_appointment_search_runs").select("started_at")
-   .eq("matched_term",cleanTerm).order("started_at",{ascending:false}).limit(1);
-  if(recent.data?.[0]&&Date.now()-Date.parse(recent.data[0].started_at)<(runner?6*3600000:15*60000))continue;
+ let requestBody:Record<string,unknown>={};
+ try{requestBody=await req.json() as Record<string,unknown>}catch{}
+ const mode=requestBody.mode==="history"?"history":"daily";
+ const terms=await admin.from("amcf_appointment_search_terms").select("id,phrase,active")
+   .eq("active",true).order("created_at").limit(6);
+ if(terms.error)return response({ok:false,error:"Não foi possível consultar os nomes monitorados"},500,allowed);
+ const now=date(new Date()),historyFloor=addDays(now,-90);
+ let scanned=0,mentions=0,possible=0,newLeads=0,failed=0,truncated=0,termRuns=0;
+ let checkedWindows=0,ignored=0;
+ for(const term of (terms.data||[]) as Term[]){
+  const phrase=plain(term.phrase).slice(0,120);
+  if(phrase.length<7||phrase.split(" ").length<2)continue;
+  let start:string,end:string,alreadyFinished=false;
+  if(mode==="history"){
+   const progress=await admin.from("amcf_appointment_history_progress")
+      .select("next_end_on,finished_on,windows_checked").eq("term_id",term.id).maybeSingle();
+   if(progress.error){failed++;continue}
+   if(progress.data?.finished_on){alreadyFinished=true;ignored++;continue}
+   end=progress.data?.next_end_on||addDays(now,-9);
+   if(end<historyFloor){ignored++;continue}
+   start=addDays(end,-6);
+   if(start<historyFloor)start=historyFloor;
+  }else{
+   end=now;start=addDays(now,runner?-8:-30);
+  }
+  const latest=await admin.from("amcf_appointment_search_runs").select("started_at,status")
+   .eq("matched_term",phrase).eq("scan_mode",mode)
+   .order("started_at",{ascending:false}).limit(1);
+  // Retentativas explícitas respeitam limites; backfill avança uma semana por execução.
+  if(latest.data?.[0]&&Date.now()-Date.parse(latest.data[0].started_at)<
+     (mode==="history"?(runner?20*3600000:30*60000):(runner?6*3600000:15*60000))){
+    ignored++;continue;
+  }
   const run=await admin.from("amcf_appointment_search_runs").insert({
-   matched_term:cleanTerm,date_from:start,date_to:end,status:"running"
+    matched_term:phrase,date_from:start,date_to:end,status:"running",scan_mode:mode
   }).select("id").maybeSingle();
   if(run.error||!run.data){failed++;continue}
-  let termMatches=0,inserted=0,failedReason="",resultStatus="ok";
+  termRuns++;checkedWindows++;
+  let hits=0,inserted=0,inspected=0,isTruncated=false,status:"ok"|"no_results"|"error"="ok";
+  let note="";
   try{
-   for(let page=1;page<=2;page++){
-    const params=new URLSearchParams({texto:cleanTerm,
-     dataDisponibilizacaoInicio:start,dataDisponibilizacaoFim:end,pagina:String(page),itensPorPagina:"50"});
-    const controller=new AbortController(),timeout=setTimeout(()=>controller.abort(),10000);
-    let response:Response;
-    try{
-     response=await fetch("https://comunicaapi.pje.jus.br/api/v1/comunicacao?"+params.toString(),{
-      method:"GET",headers:{Accept:"application/json"},signal:controller.signal});
-    }finally{clearTimeout(timeout)}
-    if(response.status===429){resultStatus="error";failedReason="Limite de consultas do DJEN atingido";break}
-    if(!response.ok){resultStatus="error";failedReason="DJEN HTTP "+response.status;break}
-    const payload=await response.json();
-    const items=(Array.isArray(payload?.items)?payload.items:Array.isArray(payload)?payload:[]) as Record<string,unknown>[];
-    inspected+=items.length;
-    if(!items.length)break;
-    const name=normalize(cleanTerm);
-    for(const entry of items){
-     const text=plain(entry.texto||entry.textoComunicacao||"");
-     const normalized=normalize(text);
-     const pos=normalized.indexOf(name);
-     if(pos<0)continue;
-     const hash=plain(entry.hash||entry.id||"").slice(0,150);
-     if(hash.length<8||!/^[a-z0-9_-]+$/i.test(hash))continue;
-     const digits=String(entry.numeroProcesso||entry.numeroprocessosemmascara||entry.numeroprocessocommascara||"").replace(/\D/g,"");
-     if(digits.length!==20)continue;
-     const around=normalized.slice(Math.max(0,pos-200),Math.min(normalized.length,pos+name.length+200));
-     const possibleMatch=/(nomea(?:do|da|cao|ção|r|se)?|nomeio|designa(?:do|da|r|cao|ção)?|perito|pericia|perícia)/i.test(around);
-     const excerptPos=Math.max(0,pos-125);
-     // Texto simples sem anexos; contém apenas uma pequena janela da menção.
-     const excerpt=text.slice(excerptPos,excerptPos+500);
-     const record={
-      external_hash:hash,matched_term:cleanTerm,cnj_number:digits,
-      tribunal:plain(entry.siglaTribunal||entry.siglatribunal||"").slice(0,40),
-      court_unit:plain(entry.nomeOrgao||entry.nomeorgao||"").slice(0,200),
-      communication_type:plain(entry.tipoComunicacao||entry.tipocomunicacao||"").slice(0,150),
-      available_on:/^\d{4}-\d{2}-\d{2}/.exec(String(entry.dataDisponibilizacao||entry.datadisponibilizacao||""))?.[0]||null,
-      match_kind:possibleMatch?"possivel_nomeacao":"mencao",
-      excerpt,
-      source_url:"https://comunicaapi.pje.jus.br/api/v1/comunicacao/"+encodeURIComponent(hash)+"/certidao"
-     };
-     termMatches++;if(possibleMatch)possible++;else mentions++;
-     const saved=await admin.from("amcf_appointment_leads").insert(record).select("id").maybeSingle();
-     if(saved.data){inserted++;newLeads++}
-     else if(saved.error?.code!=="23505"){console.error("AMCF lead insert",saved.error?.code||"unknown")}
+    for(let page=1;page<=2;page++){
+      const params=new URLSearchParams({texto:phrase,
+       dataDisponibilizacaoInicio:start,dataDisponibilizacaoFim:end,
+       pagina:String(page),itensPorPagina:"50"});
+      const ctl=new AbortController(),timer=setTimeout(()=>ctl.abort(),8500);
+      let res:Response;
+      try{
+        res=await fetch("https://comunicaapi.pje.jus.br/api/v1/comunicacao?"+params.toString(),{
+          headers:{"Accept":"application/json"},signal:ctl.signal});
+      }finally{clearTimeout(timer)}
+      if(!res.ok){status="error";note="Fonte DJEN HTTP "+res.status;break}
+      const body=await res.json();
+      const items=(Array.isArray(body?.items)?body.items:Array.isArray(body)?body:[]) as Communication[];
+      if(!items.length)break;
+      inspected+=items.length;
+      if(Number(body?.count||0)>100)isTruncated=true;
+      for(const item of items){
+        const match=extract(item,phrase);
+        if(!match)continue;
+        hits++;
+        if(match.match_kind==="possivel_nomeacao")possible++;else mentions++;
+        const saved=await admin.from("amcf_appointment_leads").insert(match).select("id").maybeSingle();
+        if(saved.data){inserted++;newLeads++}
+        else if(saved.error&&saved.error.code!=="23505")console.error("AMCF discovery write",saved.error.code);
+      }
+      if(items.length<50)break;
     }
-    if(items.length<50)break;
-    await sleep(450);
-   }
   }catch(e){
-   resultStatus="error";failedReason="Consulta não concluída";console.error("AMCF discovery",String(e).slice(0,100));
+    status="error";note="Consulta ao DJEN não concluída";
+    console.error("AMCF DJEN",String(e).slice(0,90));
   }
-  if(resultStatus==="ok"&&termMatches===0)resultStatus="no_results";
-  if(resultStatus==="error")failed++;
+  if(status==="ok"&&hits===0)status="no_results";
+  if(status==="error")failed++;
+  if(isTruncated){truncated++;note=note||"Fonte limitada a 100 registros por nome e intervalo; utilize datas menores para aprofundar."}
+  scanned+=inspected;
   await admin.from("amcf_appointment_search_runs").update({
-   finished_at:new Date().toISOString(),status:resultStatus,
-   found:termMatches,inserted,error_note:failedReason||null
+    finished_at:new Date().toISOString(),status,found:hits,inserted,
+    inspected,truncated:isTruncated,error_note:note.slice(0,300)||null
   }).eq("id",run.data.id);
+  if(mode==="history"&&status!=="error"){
+    const next=addDays(start,-1);
+    const complete=next<historyFloor;
+    const progress=await admin.from("amcf_appointment_history_progress")
+      .select("windows_checked").eq("term_id",term.id).maybeSingle();
+    await admin.from("amcf_appointment_history_progress").upsert({
+      term_id:term.id,next_end_on:next,
+      finished_on:complete?now:null,windows_checked:(progress.data?.windows_checked||0)+1,
+      last_run_at:new Date().toISOString(),updated_at:new Date().toISOString()
+    },{onConflict:"term_id"});
+  }
  }
- return reply({ok:true,source:"DJEN/CNJ",scanned:inspected,found:possible+mentions,newLeads,
-  possibleMentions:possible,otherMentions:mentions,failed,
-  caveat:"Resultados são apenas menções em publicações públicas; conferir possível nomeação no tribunal."},200,allow);
+ return response({ok:true,source:"Diário da Justiça Eletrônico Nacional (DJEN)",
+  mode,windows:checkedWindows,scanned,found:mentions+possible,newLeads,possibleMentions:possible,
+  otherMentions:mentions,failed,truncated,skipped:ignored,
+  caveat:"Busca nominal em comunicações públicas, não prova nomeação. Paginação, atrasos e sigilo limitam a cobertura; DataJud não pesquisa nome ou CPF."},200,allowed);
 });
