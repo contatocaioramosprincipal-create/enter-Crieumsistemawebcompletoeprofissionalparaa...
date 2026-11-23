@@ -15,6 +15,23 @@ const plain=(v:unknown)=>String(v??"").replace(/<script[\s\S]*?<\/script>/gi," "
  .replace(/<style[\s\S]*?<\/style>/gi," ").replace(/<[^>]*>/g," ")
  .replace(/&nbsp;|&#160;/gi," ").replace(/&amp;/gi,"&").replace(/&quot;/gi,'"')
  .replace(/&#39;|&apos;/gi,"'").replace(/[\u0000-\u001F]/g," ").replace(/\s+/g," ").trim();
+// Preserva parágrafos e quebras ao exibir o inteiro teor da publicação.
+const readable=(v:unknown)=>String(v??"").replace(/<script[\s\S]*?<\/script>/gi," ")
+ .replace(/<style[\s\S]*?<\/style>/gi," ")
+ .replace(/<br\s*\/?\s*>|<\/p\s*>|<\/div\s*>|<\/li\s*>|<\/tr\s*>/gi,"\n")
+ .replace(/<[^>]*>/g," ").replace(/&nbsp;|&#160;/gi," ")
+ .replace(/&amp;/gi,"&").replace(/&quot;/gi,'"')
+ .replace(/&#39;|&apos;/gi,"'").replace(/[^\S\n]+/g," ")
+ .replace(/\n[ \t]*\n[ \t]*\n+/g,"\n\n").trim();
+const matchesFullName=(publication:string,name:string)=>{
+ const normalized=normalize(publication),target=normalize(name);
+ if(target.split(" ").length<3)return false; // não fazer busca ampla de homônimos
+ const pos=normalized.indexOf(target);
+ if(pos<0)return false;
+ const before=pos===0?" ":normalized.charAt(pos-1);
+ const after=normalized.charAt(pos+target.length);
+ return !/[a-z0-9]/.test(before)&&!/[a-z0-9]/.test(after);
+};
 const trustedSource=(hash:string)=>"https://comunicaapi.pje.jus.br/api/v1/comunicacao/"+
  encodeURIComponent(hash)+"/certidao";
 const officialCaseLink=(value:unknown):string|null=>{
@@ -31,10 +48,10 @@ type Communication={hash?:string;id?:string|number;link?:string;numero_processo?
  textoComunicacao?:string;datadisponibilizacao?:string;dataDisponibilizacao?:string;
  siglaTribunal?:string;nomeOrgao?:string;tipoComunicacao?:string};
 const extract=(entry:Communication,phrase:string)=>{
- const content=plain(entry.texto||entry.textoComunicacao||"");
+ const content=readable(entry.texto||entry.textoComunicacao||"");
  const normalized=normalize(content),name=normalize(phrase);
  const position=normalized.indexOf(name);
- if(position<0)return null;
+ if(!matchesFullName(content,phrase)||position<0)return null;
  const hash=plain(entry.hash||"").slice(0,150);
  if(hash.length<8||!/^[a-z0-9_-]+$/i.test(hash))return null;
  const cnj=String(entry.numero_processo||entry.numeroProcesso||entry.numeroprocessocommascara||"").replace(/\D/g,"");
@@ -94,7 +111,7 @@ Deno.serve(async(req:Request)=>{
  let checkedWindows=0,ignored=0;
  for(const term of (terms.data||[]) as Term[]){
   const phrase=plain(term.phrase).slice(0,120);
-  if(phrase.length<7||phrase.split(" ").length<2)continue;
+  if(phrase.length<10||phrase.split(" ").length<3)continue;
   let start:string,end:string,alreadyFinished=false;
   if(mode==="history"){
    const progress=await admin.from("amcf_appointment_history_progress")
@@ -148,6 +165,18 @@ Deno.serve(async(req:Request)=>{
         const saved=await admin.from("amcf_appointment_leads").insert(match).select("id").maybeSingle();
         if(saved.data){inserted++;newLeads++}
         else if(saved.error&&saved.error.code!=="23505")console.error("AMCF discovery write",saved.error.code);
+        // O cartão mostra um trecho, mas esta tabela disponibiliza o texto integral sob MFA/RLS.
+        const existing=saved.data?null:await admin.from("amcf_appointment_leads")
+          .select("id").eq("external_hash",match.external_hash).maybeSingle();
+        const leadId=saved.data?.id||existing?.data?.id;
+        const fullText=readable(item.texto||item.textoComunicacao||"");
+        if(leadId&&fullText.length){
+          const put=await admin.from("amcf_appointment_publication_texts").upsert({
+            lead_id:leadId,publication_text:fullText.slice(0,150000),
+            is_truncated:fullText.length>150000,captured_at:new Date().toISOString()
+          },{onConflict:"lead_id"});
+          if(put.error)console.error("AMCF DJEN publication text",put.error.code);
+        }
       }
       if(items.length<50)break;
     }
