@@ -17,8 +17,16 @@ const plain=(v:unknown)=>String(v??"").replace(/<script[\s\S]*?<\/script>/gi," "
  .replace(/&#39;|&apos;/gi,"'").replace(/[\u0000-\u001F]/g," ").replace(/\s+/g," ").trim();
 const trustedSource=(hash:string)=>"https://comunicaapi.pje.jus.br/api/v1/comunicacao/"+
  encodeURIComponent(hash)+"/certidao";
+const officialCaseLink=(value:unknown):string|null=>{
+ try{
+  if(typeof value!=="string"||value.length>850)return null;
+  const u=new URL(value);
+  if(u.protocol!=="https:"||!/(^|\.)jus\.br$/i.test(u.hostname))return null;
+  return u.href;
+ }catch{return null}
+};
 type Term={id:string;phrase:string;active:boolean};
-type Communication={hash?:string;id?:string|number;numero_processo?:string;
+type Communication={hash?:string;id?:string|number;link?:string;numero_processo?:string;
  numeroprocessocommascara?:string;numeroProcesso?:string;texto?:string;
  textoComunicacao?:string;datadisponibilizacao?:string;dataDisponibilizacao?:string;
  siglaTribunal?:string;nomeOrgao?:string;tipoComunicacao?:string};
@@ -42,7 +50,7 @@ const extract=(entry:Communication,phrase:string)=>{
   available_on:foundDate,
   match_kind:potential?"possivel_nomeacao" as const:"mencao" as const,
   excerpt:content.slice(Math.max(0,position-130),Math.min(content.length,position+460)),
-  source_url:trustedSource(hash)
+  source_url:trustedSource(hash),official_case_url:officialCaseLink(entry.link)
  };
 };
 Deno.serve(async(req:Request)=>{
