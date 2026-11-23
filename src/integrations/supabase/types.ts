@@ -5123,6 +5123,40 @@ export type Database = {
         }
         Relationships: []
       }
+      amcf_appointment_history_progress: {
+        Row: {
+          term_id: string
+          next_end_on: string
+          finished_on: string | null
+          last_run_at: string | null
+          windows_checked: number
+          updated_at: string
+        }
+        Insert: {
+          term_id: string
+          next_end_on: string
+          finished_on?: string | null
+          last_run_at?: string | null
+          windows_checked?: number
+          updated_at?: string
+        }
+        Update: {
+          term_id?: string
+          next_end_on?: string
+          finished_on?: string | null
+          last_run_at?: string | null
+          windows_checked?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "amcf_appointment_history_progress_term_id_fkey"
+            columns: ["term_id"]
+            referencedRelation: "amcf_appointment_search_terms"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       amcf_appointment_search_terms: {
         Row: {
           id: string
@@ -5173,6 +5207,11 @@ export type Database = {
           reviewed_at: string | null
           created_at: string
           updated_at: string
+          datajud_status: string
+          datajud_checked_at: string | null
+          datajud_tribunal_alias: string | null
+          datajud_summary: Json
+          official_case_url: string | null
         }
         Insert: {
           id?: string
@@ -5192,6 +5231,11 @@ export type Database = {
           reviewed_at?: string | null
           created_at?: string
           updated_at?: string
+          datajud_status?: string
+          datajud_checked_at?: string | null
+          datajud_tribunal_alias?: string | null
+          datajud_summary?: Json
+          official_case_url?: string | null
         }
         Update: {
           id?: string
@@ -5211,6 +5255,11 @@ export type Database = {
           reviewed_at?: string | null
           created_at?: string
           updated_at?: string
+          datajud_status?: string
+          datajud_checked_at?: string | null
+          datajud_tribunal_alias?: string | null
+          datajud_summary?: Json
+          official_case_url?: string | null
         }
         Relationships: [
           {
@@ -5239,6 +5288,9 @@ export type Database = {
           found: number
           inserted: number
           error_note: string | null
+          scan_mode: string
+          inspected: number
+          truncated: boolean
         }
         Insert: {
           id?: string
@@ -5251,6 +5303,9 @@ export type Database = {
           found?: number
           inserted?: number
           error_note?: string | null
+          scan_mode?: string
+          inspected?: number
+          truncated?: boolean
         }
         Update: {
           id?: string
@@ -5263,6 +5318,9 @@ export type Database = {
           found?: number
           inserted?: number
           error_note?: string | null
+          scan_mode?: string
+          inspected?: number
+          truncated?: boolean
         }
         Relationships: [
 
