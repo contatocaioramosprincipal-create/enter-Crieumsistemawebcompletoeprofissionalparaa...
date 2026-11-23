@@ -5211,6 +5211,7 @@ export type Database = {
           datajud_checked_at: string | null
           datajud_tribunal_alias: string | null
           datajud_summary: Json
+          official_case_url: string | null
         }
         Insert: {
           id?: string
@@ -5234,6 +5235,7 @@ export type Database = {
           datajud_checked_at?: string | null
           datajud_tribunal_alias?: string | null
           datajud_summary?: Json
+          official_case_url?: string | null
         }
         Update: {
           id?: string
@@ -5257,6 +5259,7 @@ export type Database = {
           datajud_checked_at?: string | null
           datajud_tribunal_alias?: string | null
           datajud_summary?: Json
+          official_case_url?: string | null
         }
         Relationships: [
           {
