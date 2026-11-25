@@ -1,0 +1,2 @@
+-- Migração original: migration_20260930_011242000
+create policy members_signup on public.amcf_members for insert to authenticated with check (id = auth.uid() and status = 'pending' and role in ('assistant','doctor'));

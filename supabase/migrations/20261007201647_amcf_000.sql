@@ -1,0 +1,105 @@
+-- Migração original: migration_20261007_201647000
+begin;
+
+-- EVOLUÇÃO MÉDICO-PERICIAL — 1/6
+-- Dados do processo judicial/administrativo e etapas de atuação com histórico e próxima ação.
+-- Migração aditiva: nenhuma coluna existente é alterada ou removida.
+
+alter table public.amcf_cases add column if not exists cnj_number text;
+alter table public.amcf_cases add column if not exists action_type text;
+alter table public.amcf_cases add column if not exists court text;
+alter table public.amcf_cases add column if not exists court_unit text;
+alter table public.amcf_cases add column if not exists claimant text;
+alter table public.amcf_cases add column if not exists defendant text;
+alter table public.amcf_cases add column if not exists claim_summary text;
+alter table public.amcf_cases add column if not exists case_secret boolean not null default false;
+
+alter table public.amcf_cases drop constraint if exists amcf_cases_action_type_check;
+alter table public.amcf_cases add constraint amcf_cases_action_type_check
+  check (action_type is null or action_type in ('pericia_judicial','assistencia_tecnica','parecer_tecnico'));
+alter table public.amcf_cases drop constraint if exists amcf_cases_cnj_format;
+alter table public.amcf_cases add constraint amcf_cases_cnj_format
+  check (cnj_number is null or cnj_number ~ '^[0-9]{7}-[0-9]{2}\.[0-9]{4}\.[0-9]\.[0-9]{2}\.[0-9]{4}$');
+alter table public.amcf_cases drop constraint if exists amcf_cases_process_field_lengths;
+alter table public.amcf_cases add constraint amcf_cases_process_field_lengths check (
+  char_length(coalesce(cnj_number,'')) <= 25 and char_length(coalesce(court,'')) <= 160
+  and char_length(coalesce(court_unit,'')) <= 160 and char_length(coalesce(claimant,'')) <= 200
+  and char_length(coalesce(defendant,'')) <= 200 and char_length(coalesce(claim_summary,'')) <= 4000
+);
+create unique index if not exists amcf_cases_cnj_idx on public.amcf_cases(cnj_number) where cnj_number is not null;
+
+create table if not exists public.amcf_case_steps (
+  id uuid primary key default gen_random_uuid(),
+  case_id uuid not null references public.amcf_cases(id),
+  label text not null check (char_length(label) between 2 and 160),
+  detail text not null default '' check (char_length(detail) <= 2000),
+  position integer not null default 1 check (position between 1 and 999),
+  status text not null default 'pendente' check (status in ('pendente','em_andamento','concluida','cancelada')),
+  next_action text not null default '' check (char_length(next_action) <= 500),
+  next_action_on date,
+  completed_at timestamptz,
+  created_by uuid not null default auth.uid() references public.amcf_members(id),
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  check ((status = 'concluida') = (completed_at is not null))
+);
+create index if not exists amcf_case_steps_case_idx on public.amcf_case_steps(case_id, position);
+create index if not exists amcf_case_steps_next_idx on public.amcf_case_steps(next_action_on) where next_action_on is not null;
+
+alter table public.amcf_case_steps enable row level security;
+create policy case_steps_read on public.amcf_case_steps for select to authenticated using (public.amcf_can_case(case_id));
+create policy case_steps_insert on public.amcf_case_steps for insert to authenticated with check (public.amcf_can_case(case_id) and created_by = auth.uid());
+create policy case_steps_update on public.amcf_case_steps for update to authenticated using (public.amcf_can_case(case_id)) with check (public.amcf_can_case(case_id));
+create policy case_steps_delete on public.amcf_case_steps for delete to authenticated using (public.amcf_can_case(case_id) and public.amcf_is_manager());
+
+create or replace function public.amcf_medical_guard() returns trigger
+language plpgsql security definer set search_path = public as $$
+declare n jsonb := to_jsonb(new); o jsonb;
+begin
+  if tg_op = 'UPDATE' then
+    o := to_jsonb(old);
+    if n->>'id' is distinct from o->>'id' or n->>'created_at' is distinct from o->>'created_at' then
+      raise exception 'Campos de origem são imutáveis' using errcode = '42501';
+    end if;
+    if n ? 'case_id' and n->>'case_id' is distinct from o->>'case_id' then
+      raise exception 'O vínculo com o processo é imutável' using errcode = '42501';
+    end if;
+    if n ? 'created_by' and n->>'created_by' is distinct from o->>'created_by' then
+      raise exception 'Campos de origem são imutáveis' using errcode = '42501';
+    end if;
+  end if;
+  if tg_table_name = 'amcf_case_steps' then
+    if n->>'status' = 'concluida' and (n->>'completed_at') is null then
+      new := jsonb_populate_record(new, jsonb_build_object('completed_at', now()));
+    elsif n->>'status' <> 'concluida' and (n->>'completed_at') is not null then
+      raise exception 'Somente etapas concluídas mantêm data de conclusão' using errcode = '42501';
+    end if;
+  end if;
+  if n ? 'updated_at' then new := jsonb_populate_record(new, jsonb_build_object('updated_at', now())); end if;
+  return new;
+end $$;
+revoke all on function public.amcf_medical_guard() from public, anon;
+
+create trigger guard_row before insert or update on public.amcf_case_steps for each row execute function public.amcf_medical_guard();
+create trigger audit_row after insert or update or delete on public.amcf_case_steps for each row execute function public.amcf_audit_row();
+
+create or replace function public.amcf_case_next_action(target uuid) returns jsonb
+language sql stable security definer set search_path = public as $$
+  select jsonb_build_object('step_id', s.id, 'label', s.label, 'next_action', s.next_action, 'next_action_on', s.next_action_on, 'status', s.status)
+  from public.amcf_case_steps s
+  where s.case_id = target and s.status in ('pendente','em_andamento')
+  order by coalesce(s.next_action_on, 'infinity'::date), s.position
+  limit 1
+$$;
+revoke all on function public.amcf_case_next_action(uuid) from public, anon;
+grant execute on function public.amcf_case_next_action(uuid) to authenticated;
+
+revoke all on public.amcf_case_steps from anon;
+grant select, insert, update, delete on public.amcf_case_steps to authenticated;
+
+insert into public.amcf_case_steps (case_id, label, detail, position, status, created_by)
+select c.id, 'Abertura do caso', 'Processo cadastrado no sistema.', 1, 'em_andamento', c.responsible_id
+from public.amcf_cases c
+where not exists (select 1 from public.amcf_case_steps s where s.case_id = c.id);
+
+commit;

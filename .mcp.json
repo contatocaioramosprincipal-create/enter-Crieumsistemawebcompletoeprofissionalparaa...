@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "n8n-adilson": {
+      "type": "http",
+      "url": "https://caioramos.app.n8n.cloud/mcp-server/http"
+    },
+    "supabase-amcf-readonly": {
+      "type": "http",
+      "url": "https://mcp.supabase.com/mcp?project_ref=phjhedoavxicpsvuxmls&read_only=true&features=database,docs,debugging,functions"
+    }
+  }
+}

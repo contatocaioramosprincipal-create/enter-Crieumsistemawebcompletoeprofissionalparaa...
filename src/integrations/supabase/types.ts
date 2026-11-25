@@ -5123,10 +5123,595 @@ export type Database = {
         }
         Relationships: []
       }
+      amcf_appointment_history_progress: {
+        Row: {
+          term_id: string
+          next_end_on: string
+          finished_on: string | null
+          last_run_at: string | null
+          windows_checked: number
+          updated_at: string
+        }
+        Insert: {
+          term_id: string
+          next_end_on: string
+          finished_on?: string | null
+          last_run_at?: string | null
+          windows_checked?: number
+          updated_at?: string
+        }
+        Update: {
+          term_id?: string
+          next_end_on?: string
+          finished_on?: string | null
+          last_run_at?: string | null
+          windows_checked?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "amcf_appointment_history_progress_term_id_fkey"
+            columns: ["term_id"]
+            referencedRelation: "amcf_appointment_search_terms"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      amcf_appointment_search_terms: {
+        Row: {
+          id: string
+          phrase: string
+          active: boolean
+          created_by: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          phrase: string
+          active?: boolean
+          created_by?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          phrase?: string
+          active?: boolean
+          created_by?: string | null
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "amcf_appointment_search_terms_created_by_fkey"
+            columns: ["created_by"]
+            referencedRelation: "amcf_members"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      amcf_appointment_leads: {
+        Row: {
+          id: string
+          external_hash: string
+          matched_term: string
+          cnj_number: string | null
+          tribunal: string
+          court_unit: string
+          communication_type: string
+          available_on: string | null
+          match_kind: string
+          excerpt: string
+          source_url: string
+          status: string
+          linked_case_id: string | null
+          reviewed_by: string | null
+          reviewed_at: string | null
+          created_at: string
+          updated_at: string
+          datajud_status: string
+          datajud_checked_at: string | null
+          datajud_tribunal_alias: string | null
+          datajud_summary: Json
+          official_case_url: string | null
+          discard_reason: string | null
+        }
+        Insert: {
+          id?: string
+          external_hash: string
+          matched_term: string
+          cnj_number?: string | null
+          tribunal?: string
+          court_unit?: string
+          communication_type?: string
+          available_on?: string | null
+          match_kind: string
+          excerpt?: string
+          source_url: string
+          status?: string
+          linked_case_id?: string | null
+          reviewed_by?: string | null
+          reviewed_at?: string | null
+          created_at?: string
+          updated_at?: string
+          datajud_status?: string
+          datajud_checked_at?: string | null
+          datajud_tribunal_alias?: string | null
+          datajud_summary?: Json
+          official_case_url?: string | null
+          discard_reason?: string | null
+        }
+        Update: {
+          id?: string
+          external_hash?: string
+          matched_term?: string
+          cnj_number?: string | null
+          tribunal?: string
+          court_unit?: string
+          communication_type?: string
+          available_on?: string | null
+          match_kind?: string
+          excerpt?: string
+          source_url?: string
+          status?: string
+          linked_case_id?: string | null
+          reviewed_by?: string | null
+          reviewed_at?: string | null
+          created_at?: string
+          updated_at?: string
+          datajud_status?: string
+          datajud_checked_at?: string | null
+          datajud_tribunal_alias?: string | null
+          datajud_summary?: Json
+          official_case_url?: string | null
+          discard_reason?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "amcf_appointment_leads_linked_case_id_fkey"
+            columns: ["linked_case_id"]
+            referencedRelation: "amcf_cases"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "amcf_appointment_leads_reviewed_by_fkey"
+            columns: ["reviewed_by"]
+            referencedRelation: "amcf_members"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      amcf_appointment_publication_texts: {
+        Row: {
+          lead_id: string
+          publication_text: string
+          is_truncated: boolean
+          captured_at: string
+        }
+        Insert: {
+          lead_id: string
+          publication_text: string
+          is_truncated?: boolean
+          captured_at?: string
+        }
+        Update: {
+          lead_id?: string
+          publication_text?: string
+          is_truncated?: boolean
+          captured_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "amcf_appointment_publication_texts_lead_id_fkey"
+            columns: ["lead_id"]
+            referencedRelation: "amcf_appointment_leads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      amcf_appointment_search_runs: {
+        Row: {
+          id: string
+          matched_term: string
+          started_at: string
+          finished_at: string | null
+          date_from: string | null
+          date_to: string | null
+          status: string
+          found: number
+          inserted: number
+          error_note: string | null
+          scan_mode: string
+          inspected: number
+          truncated: boolean
+        }
+        Insert: {
+          id?: string
+          matched_term: string
+          started_at?: string
+          finished_at?: string | null
+          date_from?: string | null
+          date_to?: string | null
+          status: string
+          found?: number
+          inserted?: number
+          error_note?: string | null
+          scan_mode?: string
+          inspected?: number
+          truncated?: boolean
+        }
+        Update: {
+          id?: string
+          matched_term?: string
+          started_at?: string
+          finished_at?: string | null
+          date_from?: string | null
+          date_to?: string | null
+          status?: string
+          found?: number
+          inserted?: number
+          error_note?: string | null
+          scan_mode?: string
+          inspected?: number
+          truncated?: boolean
+        }
+        Relationships: [
+
+        ]
+      }
+      amcf_djen_publications: {
+        Row: {
+          id: string
+          case_id: string
+          external_hash: string
+          tribunal: string
+          communication_type: string
+          available_on: string | null
+          published_on: string | null
+          summary: string
+          official_url: string | null
+          imported_at: string
+        }
+        Insert: {
+          id?: string
+          case_id: string
+          external_hash: string
+          tribunal?: string
+          communication_type?: string
+          available_on?: string | null
+          published_on?: string | null
+          summary?: string
+          official_url?: string | null
+          imported_at?: string
+        }
+        Update: {
+          id?: string
+          case_id?: string
+          external_hash?: string
+          tribunal?: string
+          communication_type?: string
+          available_on?: string | null
+          published_on?: string | null
+          summary?: string
+          official_url?: string | null
+          imported_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "amcf_djen_publications_case_id_fkey"
+            columns: ["case_id"]
+            referencedRelation: "amcf_cases"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      amcf_djen_syncs: {
+        Row: {
+          id: string
+          case_id: string
+          status: string
+          checked_at: string
+          found: number
+          inserted: number
+          note: string
+        }
+        Insert: {
+          id?: string
+          case_id: string
+          status: string
+          checked_at?: string
+          found?: number
+          inserted?: number
+          note?: string
+        }
+        Update: {
+          id?: string
+          case_id?: string
+          status?: string
+          checked_at?: string
+          found?: number
+          inserted?: number
+          note?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "amcf_djen_syncs_case_id_fkey"
+            columns: ["case_id"]
+            referencedRelation: "amcf_cases"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      amcf_google_digest_settings: {
+        Row: {
+          owner_id: string
+          enabled: boolean
+          last_sent_on: string | null
+          updated_at: string
+        }
+        Insert: {
+          owner_id: string
+          enabled?: boolean
+          last_sent_on?: string | null
+          updated_at?: string
+        }
+        Update: {
+          owner_id?: string
+          enabled?: boolean
+          last_sent_on?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "amcf_google_digest_settings_owner_id_fkey"
+            columns: ["owner_id"]
+            referencedRelation: "amcf_members"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      amcf_google_connections: {
+        Row: {
+          owner_id: string
+          google_email: string
+          refresh_secret_id: string
+          granted_scopes: string
+          calendar_id: string
+          connected_at: string
+          last_calendar_sync_at: string | null
+          last_gmail_sync_at: string | null
+        }
+        Insert: {
+          owner_id: string
+          google_email: string
+          refresh_secret_id: string
+          granted_scopes?: string
+          calendar_id?: string
+          connected_at?: string
+          last_calendar_sync_at?: string | null
+          last_gmail_sync_at?: string | null
+        }
+        Update: {
+          owner_id?: string
+          google_email?: string
+          refresh_secret_id?: string
+          granted_scopes?: string
+          calendar_id?: string
+          connected_at?: string
+          last_calendar_sync_at?: string | null
+          last_gmail_sync_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "amcf_google_connections_owner_id_fkey"
+            columns: ["owner_id"]
+            referencedRelation: "amcf_members"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      amcf_google_calendar_events: {
+        Row: {
+          id: string
+          owner_id: string
+          case_id: string | null
+          summary: string
+          starts_at: string
+          ends_at: string
+          google_event_id: string | null
+          google_updated_at: string | null
+          last_synced_at: string | null
+          deleted_at: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          owner_id: string
+          case_id?: string | null
+          summary: string
+          starts_at: string
+          ends_at: string
+          google_event_id?: string | null
+          google_updated_at?: string | null
+          last_synced_at?: string | null
+          deleted_at?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          owner_id?: string
+          case_id?: string | null
+          summary?: string
+          starts_at?: string
+          ends_at?: string
+          google_event_id?: string | null
+          google_updated_at?: string | null
+          last_synced_at?: string | null
+          deleted_at?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "amcf_google_calendar_events_owner_id_fkey"
+            columns: ["owner_id"]
+            referencedRelation: "amcf_members"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "amcf_google_calendar_events_case_id_fkey"
+            columns: ["case_id"]
+            referencedRelation: "amcf_cases"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      amcf_google_email_messages: {
+        Row: {
+          id: string
+          owner_id: string
+          case_id: string
+          gmail_message_id: string
+          gmail_thread_id: string | null
+          sender: string
+          recipient: string
+          subject: string
+          excerpt: string
+          received_at: string | null
+          recorded_at: string
+        }
+        Insert: {
+          id?: string
+          owner_id: string
+          case_id: string
+          gmail_message_id: string
+          gmail_thread_id?: string | null
+          sender?: string
+          recipient?: string
+          subject?: string
+          excerpt?: string
+          received_at?: string | null
+          recorded_at?: string
+        }
+        Update: {
+          id?: string
+          owner_id?: string
+          case_id?: string
+          gmail_message_id?: string
+          gmail_thread_id?: string | null
+          sender?: string
+          recipient?: string
+          subject?: string
+          excerpt?: string
+          received_at?: string | null
+          recorded_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "amcf_google_email_messages_owner_id_fkey"
+            columns: ["owner_id"]
+            referencedRelation: "amcf_members"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "amcf_google_email_messages_case_id_fkey"
+            columns: ["case_id"]
+            referencedRelation: "amcf_cases"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      amcf_google_sent_messages: {
+        Row: {
+          id: string
+          owner_id: string
+          case_id: string
+          recipient: string
+          subject: string
+          gmail_message_id: string | null
+          sent_at: string
+        }
+        Insert: {
+          id?: string
+          owner_id: string
+          case_id: string
+          recipient: string
+          subject: string
+          gmail_message_id?: string | null
+          sent_at?: string
+        }
+        Update: {
+          id?: string
+          owner_id?: string
+          case_id?: string
+          recipient?: string
+          subject?: string
+          gmail_message_id?: string | null
+          sent_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "amcf_google_sent_messages_owner_id_fkey"
+            columns: ["owner_id"]
+            referencedRelation: "amcf_members"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "amcf_google_sent_messages_case_id_fkey"
+            columns: ["case_id"]
+            referencedRelation: "amcf_cases"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      amcf_fee_templates: {
+        Row: {
+          active: boolean
+          amount_cents: number
+          created_at: string
+          created_by: string
+          description: string
+          id: string
+          service: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          amount_cents: number
+          created_at?: string
+          created_by?: string
+          description?: string
+          id?: string
+          service: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          amount_cents?: number
+          created_at?: string
+          created_by?: string
+          description?: string
+          id?: string
+          service?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "amcf_fee_templates_created_by_fkey"
+            columns: ["created_by"]
+            referencedRelation: "amcf_members"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       amcf_proposals: {
         Row: {
           amount_cents: number
           case_id: string | null
+          fee_template_id: string | null
           contact_id: string
           created_at: string
           created_by: string
@@ -5144,6 +5729,7 @@ export type Database = {
         Insert: {
           amount_cents: number
           case_id?: string | null
+          fee_template_id?: string | null
           contact_id: string
           created_at?: string
           created_by?: string
@@ -5161,6 +5747,7 @@ export type Database = {
         Update: {
           amount_cents?: number
           case_id?: string | null
+          fee_template_id?: string | null
           contact_id?: string
           created_at?: string
           created_by?: string
@@ -5176,6 +5763,12 @@ export type Database = {
           valid_until?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "amcf_proposals_fee_template_id_fkey"
+            columns: ["fee_template_id"]
+            referencedRelation: "amcf_fee_templates"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "amcf_proposals_case_id_fkey"
             columns: ["case_id"]

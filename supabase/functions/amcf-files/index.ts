@@ -1,5 +1,12 @@
 // Autoriza, valida e registra documentos. Os bytes NÃO passam por esta função: o navegador envia direto ao Storage privado (TUS).
-const cors = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type', 'Access-Control-Allow-Methods': 'POST, OPTIONS' };
+const ALLOWED_ORIGINS = new Set(['https://sistema.dradilsoncouto.com.br', 'https://amcf-dr-adilson-original.pages.dev']);
+const corsFor = (origin: string) => ({
+  ...(ALLOWED_ORIGINS.has(origin) ? { 'Access-Control-Allow-Origin': origin } : {}),
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+  'Vary': 'Origin',
+});
+
 const BUCKET = 'amcf-documentos';
 const APP_MAX_BYTES = 200 * 1024 * 1024; // teto lógico do produto; o limite efetivo é o menor entre este e o do bucket/plano
 const DEFAULT_BUCKET_LIMIT = 50 * 1024 * 1024;
@@ -7,7 +14,6 @@ const SIGNATURES: Record<string, number[]> = { 'application/pdf': [0x25, 0x50, 0
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 const CATEGORIES = ['procuracao', 'processo', 'laudo', 'exame', 'quesitos', 'contrato', 'comprovante', 'outro'];
 
-const reply = (status: number, body: unknown) => new Response(JSON.stringify(body), { status, headers: { ...cors, 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } });
 const BASE = () => Deno.env.get('SUPABASE_URL')!;
 const ANON = () => Deno.env.get('SUPABASE_ANON_KEY')!;
 const SERVICE = () => Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
@@ -25,6 +31,12 @@ async function ensureBucket(requestId: string) {
 const removeObject = (path: string) => withService(`/storage/v1/object/${BUCKET}/${encodePath(path)}`, { method: 'DELETE' });
 
 Deno.serve(async (request: Request) => {
+  const origin = request.headers.get('Origin') || '';
+  const cors = corsFor(origin);
+  const reply = (status: number, body: unknown) => new Response(JSON.stringify(body), {
+    status, headers: { ...cors, 'Content-Type': 'application/json', 'Cache-Control': 'no-store' },
+  });
+  if (origin && !ALLOWED_ORIGINS.has(origin)) return reply(403, { error: 'Origem não autorizada.' });
   if (request.method === 'OPTIONS') return new Response(null, { headers: cors });
   const requestId = crypto.randomUUID();
   if (request.method !== 'POST') return reply(405, { error: 'Método não permitido.' });
@@ -60,7 +72,7 @@ Deno.serve(async (request: Request) => {
       const caseResponse = await withCaller(`/rest/v1/amcf_cases?select=id,contact_id&id=eq.${caseId}`, token);
       const cases = caseResponse.ok ? await caseResponse.json() : [];
       const target = Array.isArray(cases) ? cases[0] : null;
-      if (!target) { await removeObject(path); return reply(403, { error: 'Caso indisponível para a sua conta.' }); }
+      if (!target) return reply(403, { error: 'Caso indisponível para a sua conta.' }); // NEVER delete a client-specified path after authorization failure
       const bucket = await ensureBucket(requestId); const limit = Math.min(APP_MAX_BYTES, bucket.limit || DEFAULT_BUCKET_LIMIT);
       const listed = await withService(`/storage/v1/object/list/${BUCKET}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ prefix: caseId, limit: 5, search: parts[1] }) });
       const items = listed.ok ? await listed.json() : [];

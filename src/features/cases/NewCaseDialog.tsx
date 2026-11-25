@@ -1,0 +1,100 @@
+import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { toast } from 'sonner';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/features/auth/auth-context';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import LookupInput from '@/features/registry/LookupInput';
+import { contactKinds } from '@/features/registry/resources';
+import { errorMessage, todayISO } from '@/lib/format';
+import { cnjError, formatCnj } from '@/features/pericial/pericial';
+
+const newReference = () => `CASO-${todayISO().replace(/-/g, '')}-${String(Math.floor(Math.random() * 9000) + 1000)}`;
+
+// Cria contato (ou usa um existente) e o caso em uma única tela, e abre o caso para anexar documentos.
+export default function NewCaseDialog({ onClose, presetContactId = '', presetCnj = '', presetOriginLeadId = '' }: { onClose: () => void; presetContactId?: string; presetCnj?: string; presetOriginLeadId?: string }) {
+  const { access } = useAuth();
+  const navigate = useNavigate();
+  const cache = useQueryClient();
+  const [mode, setMode] = useState<'existing' | 'new'>(presetContactId ? 'existing' : 'new');
+  const [contactId, setContactId] = useState(presetContactId);
+  const [contactName, setContactName] = useState('');
+  const [kind, setKind] = useState('client');
+  const [email, setEmail] = useState('');
+  const [phone, setPhone] = useState('');
+  const [title, setTitle] = useState('');
+  const [service, setService] = useState('Perícia médica');
+  const [dueOn, setDueOn] = useState('');
+  const [cnj, setCnj] = useState(presetCnj ? formatCnj(presetCnj) : '');
+  const [assunto, setAssunto] = useState('');
+  const [autor, setAutor] = useState('');
+  const [reu, setReu] = useState('');
+  const [vara, setVara] = useState('');
+  const [observacoes, setObservacoes] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const stages = useQuery({ queryKey: ['stages', 'amcf_case_stages'], queryFn: async () => { const result = await supabase.from('amcf_case_stages').select('id,name').order('position'); if (result.error) throw result.error; return result.data; } });
+  const memberId = access?.member?.id;
+
+  const save = async (event: React.FormEvent) => {
+    event.preventDefault(); setError('');
+    if (!memberId) { setError('Sua sessão não tem perfil ativo. Entre novamente e confirme o código de verificação em duas etapas (MFA).'); return; }
+    const firstStage = stages.data?.[0]?.id;
+    if (!firstStage) { setError('As etapas dos casos não foram carregadas. Tente novamente em instantes.'); return; }
+    if (title.trim().length < 3) { setError('Informe um título para o caso (mínimo 3 caracteres).'); return; }
+    if (service.trim().length < 2) { setError('Informe o tipo de serviço.'); return; }
+    if (cnj.trim() && cnjError(cnj)) { setError(cnjError(cnj) || 'Número CNJ inválido.'); return; }
+    if (mode === 'existing' && !contactId) { setError('Escolha o contato do caso.'); return; }
+    if (mode === 'new' && contactName.trim().length < 2) { setError('Informe o nome do contato.'); return; }
+    setBusy(true);
+    try {
+      if (cnj.trim()) {
+        const duplicate = await supabase.from('amcf_cases').select('id').eq('cnj_number',formatCnj(cnj)).maybeSingle();
+        if (duplicate.error) throw duplicate.error;
+        if (duplicate.data) throw new Error('Este número CNJ já está cadastrado. Abra o processo existente em vez de criar outro.');
+      }
+      let owner = contactId;
+      if (mode === 'new') {
+        const created = await supabase.from('amcf_contacts').insert({ name: contactName.trim(), kind, email: email.trim() ? email.trim().toLowerCase() : null, phone: phone.replace(/\D/g, '') || null, responsible_id: memberId }).select('id');
+        if (created.error) throw created.error;
+        owner = String(created.data?.[0]?.id ?? '');
+        if (!owner) throw new Error('O contato não foi salvo. Sua permissão pode ter sido alterada.');
+      }
+      const made = await supabase.from('amcf_cases').insert({ reference: newReference(), title: title.trim(), contact_id: owner, service: service.trim(), stage_id: firstStage, responsible_id: memberId, opened_on: todayISO(), due_on: dueOn || null, cnj_number: cnj.trim() ? formatCnj(cnj) : null, claim_summary: assunto.trim() || null, claimant: autor.trim() || null, defendant: reu.trim() || null, court_unit: vara.trim() || null, administrative_summary: observacoes.trim() }).select('id');
+      if (made.error) throw made.error;
+      const caseId = String(made.data?.[0]?.id ?? '');
+      if (!caseId) throw new Error('O caso não foi salvo. Sua permissão pode ter sido alterada.');
+      let linked = !presetOriginLeadId;
+      if (presetOriginLeadId && cnj.trim()) {
+        const lead = await supabase.from('amcf_appointment_leads')
+          .select('id,cnj_number,status').eq('id',presetOriginLeadId).maybeSingle();
+        if (!lead.error && lead.data && lead.data.status === 'confirmada' &&
+          lead.data.cnj_number?.replace(/\D/g,'') === cnj.replace(/\D/g,'')) {
+          const result = await supabase.from('amcf_appointment_leads')
+            .update({linked_case_id:caseId,status:'vinculada',reviewed_by:memberId,reviewed_at:new Date().toISOString()})
+            .eq('id',presetOriginLeadId).select('id');
+          linked = !result.error && !!result.data?.length;
+        }
+      }
+      await cache.invalidateQueries();
+      if (linked) toast.success('Caso criado e vinculado ao CRM.');
+      else toast.warning('Caso criado. Confira o vínculo com a publicação no Radar de Nomeações.');
+      onClose();
+      navigate(`/casos/${caseId}`);
+    } catch (failure) { setError(errorMessage(failure)); }
+    finally { setBusy(false); }
+  };
+
+  return <Dialog open onOpenChange={open => { if (!open && !busy) onClose(); }}><DialogContent className="max-h-[90dvh] max-w-xl overflow-y-auto"><DialogHeader><DialogTitle>Novo caso</DialogTitle><DialogDescription>Preencha o contato e o caso em uma só tela. Registre somente informações administrativas, sem dados clínicos.</DialogDescription></DialogHeader>
+    <form onSubmit={save} className="space-y-4">
+      {!presetContactId && <div className="flex gap-2" role="group" aria-label="Origem do contato"><Button type="button" size="sm" variant={mode === 'new' ? 'default' : 'outline'} onClick={() => setMode('new')} disabled={busy}>Contato novo</Button><Button type="button" size="sm" variant={mode === 'existing' ? 'default' : 'outline'} onClick={() => setMode('existing')} disabled={busy}>Contato já cadastrado</Button></div>}
+      {mode === 'existing' ? <div><label className="field-label">Contato *</label><LookupInput table="amcf_contacts" value={contactId} onChange={setContactId} required disabled={busy || !!presetContactId} label="Contato do caso" /></div> : <div className="grid gap-4 sm:grid-cols-2"><div className="sm:col-span-2"><label className="field-label" htmlFor="nc-name">Nome do contato *</label><Input id="nc-name" value={contactName} onChange={e => setContactName(e.target.value)} maxLength={160} disabled={busy} /></div><div><label className="field-label" htmlFor="nc-kind">Categoria</label><select id="nc-kind" className="native-select" value={kind} onChange={e => setKind(e.target.value)} disabled={busy}>{Object.entries(contactKinds).map(([id, name]) => <option key={id} value={id}>{name}</option>)}</select></div><div><label className="field-label" htmlFor="nc-phone">Telefone</label><Input id="nc-phone" inputMode="tel" value={phone} onChange={e => setPhone(e.target.value)} disabled={busy} /></div><div className="sm:col-span-2"><label className="field-label" htmlFor="nc-email">E-mail</label><Input id="nc-email" type="email" value={email} onChange={e => setEmail(e.target.value)} disabled={busy} /></div></div>}
+      <div className="grid gap-4 sm:grid-cols-2"><div className="sm:col-span-2"><label className="field-label" htmlFor="nc-title">Título do caso *</label><Input id="nc-title" value={title} onChange={e => setTitle(e.target.value)} maxLength={200} placeholder="Ex.: Perícia previdenciária — nome do cliente" disabled={busy} /></div><div><label className="field-label" htmlFor="nc-service">Tipo de serviço *</label><Input id="nc-service" value={service} onChange={e => setService(e.target.value)} maxLength={160} disabled={busy} /></div><div><label className="field-label" htmlFor="nc-due">Prazo (opcional)</label><Input id="nc-due" type="date" value={dueOn} onChange={e => setDueOn(e.target.value)} disabled={busy} /></div></div>
+      <div className="rounded-lg border p-4 space-y-4"><div><h3 className="text-sm font-semibold">Identificação judicial do processo</h3><p className="mt-1 text-xs text-muted-foreground">Preencha os dados conhecidos; poderá complementar depois, na ficha do processo.</p></div><div className="grid gap-4 sm:grid-cols-2"><div className="sm:col-span-2"><label className="field-label" htmlFor="nc-cnj">Nº do processo (CNJ)</label><Input id="nc-cnj" value={cnj} onChange={e => setCnj(formatCnj(e.target.value))} placeholder="0000000-00.0000.0.00.0000" disabled={busy} maxLength={25} />{cnj && cnjError(cnj) && <p className="text-xs text-destructive">{cnjError(cnj)}</p>}</div><div className="sm:col-span-2"><label className="field-label" htmlFor="nc-assunto">Assunto / objeto da ação</label><Input id="nc-assunto" value={assunto} onChange={e => setAssunto(e.target.value)} maxLength={4000} disabled={busy} /></div><div><label className="field-label" htmlFor="nc-autor">Autor</label><Input id="nc-autor" value={autor} onChange={e => setAutor(e.target.value)} maxLength={200} disabled={busy} /></div><div><label className="field-label" htmlFor="nc-reu">Réu</label><Input id="nc-reu" value={reu} onChange={e => setReu(e.target.value)} maxLength={200} disabled={busy} /></div><div className="sm:col-span-2"><label className="field-label" htmlFor="nc-vara">Vara / unidade judicial</label><Input id="nc-vara" value={vara} onChange={e => setVara(e.target.value)} maxLength={160} disabled={busy} /></div><div className="sm:col-span-2"><label className="field-label" htmlFor="nc-info">ID externo / informações importantes</label><textarea id="nc-info" className="native-select min-h-20" value={observacoes} onChange={e => setObservacoes(e.target.value)} maxLength={4000} disabled={busy} placeholder="Referências do processo e observações administrativas relevantes" /></div></div></div>
+      {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
+      <div className="flex justify-end gap-2 border-t pt-4"><Button type="button" variant="outline" onClick={onClose} disabled={busy}>Cancelar</Button><Button type="submit" disabled={busy || stages.isPending}>{busy ? 'Salvando…' : 'Criar caso'}</Button></div>
+    </form></DialogContent></Dialog>;
+}

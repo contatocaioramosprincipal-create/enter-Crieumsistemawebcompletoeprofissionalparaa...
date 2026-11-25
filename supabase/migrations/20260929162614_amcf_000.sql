@@ -1,0 +1,3 @@
+-- Copiado sem alterações da migração original: migration_20260929_162614000
+alter table public.amcf_settings add column app_origin text;
+alter table public.amcf_settings add constraint amcf_origin_https check(app_origin is null or app_origin ~ '^https://[a-zA-Z0-9.-]+(:[0-9]+)?$');

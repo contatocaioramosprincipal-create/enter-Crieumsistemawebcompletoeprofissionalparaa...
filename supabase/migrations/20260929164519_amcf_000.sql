@@ -1,0 +1,9 @@
+-- Copiado sem alterações da migração original: migration_20260929_164519000
+create function public.amcf_guard_organization_link() returns trigger language plpgsql security definer set search_path=public as $$ begin
+ if new.organization_id is not null and not public.amcf_is_manager() and not exists(select 1 from public.amcf_organizations o where o.id=new.organization_id and o.created_by=auth.uid()) and not exists(select 1 from public.amcf_contacts c where c.organization_id=new.organization_id and public.amcf_can_contact(c.id)) then raise exception 'Organização fora do seu escopo' using errcode='42501'; end if;
+ return new;
+end $$;
+revoke all on function public.amcf_guard_organization_link() from public;
+create trigger guard_organization_link before insert or update on public.amcf_contacts for each row execute function public.amcf_guard_organization_link();
+alter table public.amcf_contacts add constraint amcf_contact_field_lengths check(char_length(coalesce(email,''))<=254 and char_length(coalesce(phone,''))<=15 and char_length(source)<=160);
+alter table public.amcf_opportunities add constraint amcf_opportunity_field_lengths check(char_length(next_step)<=500 and char_length(coalesce(loss_reason,''))<=2000);
